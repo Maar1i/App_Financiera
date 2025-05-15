@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Asistente Financiero IA</title>
+</head>
+<body>
+    <h2>Asistente Financiero IA (DeepSeek)</h2>
+
+    <form method="POST">
+        <textarea name="pregunta" rows="4" cols="50" placeholder="Haz tu pregunta sobre finanzas..." required></textarea>
+        <br>
+        <button type="submit">Preguntar</button>
+    </form>
+
+    {% if respuesta %}
+        <h3>Respuesta de la IA:</h3>
+        <p>{{ respuesta }}</p>
+    {% endif %}
+
+    <br>
+    <a href="{{ url_for('dashboard') }}">Volver al panel</a>
+</body>
+</html>
+
