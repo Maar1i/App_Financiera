@@ -1,16 +1,18 @@
 import requests
 import json
 import pandas as pd
+import yfinance as yf
+from datetime import datetime
 #-------------------------------------------------------------------------------------------------------------------------------------------------
 # API_KEY de open router.ai
-API_KEY = "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"
+API_KEY_IA = "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"
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------
 # response que da la página para poder hacer consultas a deepseek de manera gratuita.
 response = requests.post(
   url="https://openrouter.ai/api/v1/chat/completions",
   headers={
-    "Authorization": f"Bearer {API_KEY}",
+    "Authorization": f"Bearer {API_KEY_IA}",
     "Content-Type": "application/json",
     "HTTP-Referer": "<YOUR_SITE_URL>", # Optional. Site URL for rankings on openrouter.ai.
     "X-Title": "<YOUR_SITE_NAME>", # Optional. Site title for rankings on openrouter.ai.
@@ -20,7 +22,7 @@ response = requests.post(
     "messages": [
       {
         "role": "user",
-        "content": "Explicame el interes compuesto como niño pequeño."   # línea que manda el prompt a deepseek.
+        "content": "hola"   # línea que manda el prompt a deepseek.
       }
     ],
     
@@ -38,3 +40,21 @@ if response.status_code == 200:
 else:
     print(f"Error: {response.status_code}")
     print(response.text)
+
+
+
+#--------------------API DE INVERSION------------------------------------------------------------------------------------------------
+def tabla_precios(simbolo, fecha):
+    
+    fecha_inicial = datetime.strptime(fecha, "%d/%m/%Y").date()
+    fecha_final = datetime.now().date()
+    
+    data = yf.download(simbolo, start= fecha_inicial, end= fecha_final)
+    print(data.head())
+
+tabla_precios("AAPL", "19/05/2025")
+
+
+
+
+
