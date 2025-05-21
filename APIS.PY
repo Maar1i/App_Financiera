@@ -142,7 +142,68 @@ else:
     print("No hay datos para graficar o falta la columna 'valor_inversion_usd'")
 
 
+#---------------------GRAFICA DE CRYPTOS----------------------------------------------------------------------------------------------------
 
+import plotly.graph_objects as go
+
+# Asegúrate de que la columna date esté en formato datetime
+df["date"] = pd.to_datetime(df["date"])
+
+if not df.empty and "valor_inversion_usd" in df.columns:
+    frames = []
+    for i in range(2, len(df)):
+        frames.append(go.Frame(
+            data=[go.Scatter(
+                x=df["date"][:i],
+                y=df["valor_inversion_usd"][:i],
+                mode="lines",
+                line=dict(color="green", width=3)
+            )],
+            name=str(df["date"].iloc[i])
+        ))
+
+    fig = go.Figure(
+        data=[go.Scatter(
+            x=[df["date"].iloc[0], df["date"].iloc[1]],
+            y=[df["valor_inversion_usd"].iloc[0], df["valor_inversion_usd"].iloc[1]],
+            mode="lines",
+            line=dict(color="green", width=3)
+        )],
+        layout=go.Layout(
+            title="Evolución del valor de la inversión en Bitcoin",
+            xaxis=dict(title="Fecha", range=[df["date"].min(), df["date"].max()]),
+            yaxis=dict(title="Valor en USD", range=[
+                df["valor_inversion_usd"].min() * 0.95,
+                df["valor_inversion_usd"].max() * 1.05
+            ]),
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(label="Play",
+                         method="animate",
+                         args=[None, {
+                             "frame": {"duration": 30, "redraw": True},
+                             "fromcurrent": True,
+                             "transition": {"duration": 0}
+                         }]),
+                    dict(label="Pause",
+                         method="animate",
+                         args=[[None], {
+                             "frame": {"duration": 0, "redraw": False},
+                             "mode": "immediate",
+                             "transition": {"duration": 0}
+                         }])
+                ]
+            )]
+        ),
+        frames=frames
+    )
+
+    fig.show()
+else:
+    print("No hay datos para graficar o falta la columna 'valor_inversion_usd'")
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
