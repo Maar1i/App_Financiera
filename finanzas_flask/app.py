@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 
 
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'una-clave-secreta-muy-segura'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'finanzas.db')
@@ -59,6 +60,19 @@ def load_user(user_id):
 @app.route('/')
 def home():
     return redirect(url_for('login'))
+
+@app.route('/')
+def inicio():
+    return render_template('inicio.html', show_blue_stripe=True)
+
+@app.route('/inversiones')
+def inversiones():
+    return render_template('inversiones.html', show_blue_stripe=True)
+
+@app.route('/consulta-financiera')
+def consulta_financiera():
+    return render_template('consulta_financiera.html', show_blue_stripe=True)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
