@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acciones - App Financiera</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Mantenemos los mismos estilos del dashboard para consistencia */
+        .navbar {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .blue-stripe {
+            background-color: #070262f5;
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .menu-item:hover {
+            color: #cfe2ff;
+        }
+        .action-card {
+            border-left: 4px solid #070262f5;
+            margin-bottom: 10px;
+        }
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .btn-action {
+            background-color: #070262f5;
+            border-color: #070262f5;
+            color: white;
+        }
+        .btn-action:hover {
+            background-color: #05014af5;
+            border-color: #05014af5;
+            color: white;
+        }
+        .stock-logo {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="#">Finanzas App</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="homeDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="homeDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('acciones') }}">Acciones</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('consulta_financiera') }}">Consulta Financiera</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Cerrar sesión</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Franja azul -->
+    <div class="blue-stripe">
+        <div class="container d-flex justify-content-center">
+            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('indicadores') }}" class="menu-item">DIVISAS?</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
+
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-md-5">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4><i class="fas fa-chart-line"></i> Nueva Acción</h4>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            <div class="mb-3">
+                                <label class="form-label">Seleccione Acción:</label>
+                                <select class="form-select" name="accion" required>
+                                    <option value="" disabled selected>Seleccione una acción</option>
+                                    <option value="AAPL">Apple (AAPL)</option>
+                                    <option value="MSFT">Microsoft (MSFT)</option>
+                                    <option value="GOOGL">Alphabet (GOOGL)</option>
+                                    <option value="AMZN">Amazon (AMZN)</option>
+                                    <option value="META">Meta (META)</option>
+                                    <option value="TSLA">Tesla (TSLA)</option>
+                                    <option value="NVDA">NVIDIA (NVDA)</option>
+                                    <option value="JPM">JP Morgan (JPM)</option>
+                                    <option value="V">Visa (V)</option>
+                                    <option value="WMT">Walmart (WMT)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de Operación:</label>
+                                <select class="form-select" name="tipo_operacion" required>
+                                    <option value="compra">Compra</option>
+                                    <option value="venta">Venta</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Cantidad:</label>
+                                <input type="number" class="form-control" name="cantidad" placeholder="Número de acciones" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Precio por Acción ($):</label>
+                                <input type="number" step="0.01" class="form-control" name="precio" placeholder="Precio unitario" required>
+                            </div>
+                            <button type="submit" class="btn btn-action w-100">
+                                <i class="fas fa-save"></i> Guardar Operación
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h4><i class="fas fa-list"></i> Mis Últimas Operaciones</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if transacciones %}
+                            <div class="list-group">
+                                {% for t in transacciones %}
+                                <div class="list-group-item action-card">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <strong>{{ t.accion }}</strong>
+                                            <span class="badge bg-{{ 'success' if t.tipo_operacion == 'compra' else 'danger' }}">
+                                                {{ t.tipo_operacion|capitalize }}
+                                            </span>
+                                        </div>
+                                        <span>${{ "%.2f"|format(t.precio * t.cantidad) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-muted">
+                                            {{ t.cantidad }} acc @ ${{ "%.2f"|format(t.precio) }}
+                                        </small>
+                                        <small class="text-muted">{{ t.fecha.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No hay operaciones registradas
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="graph-container">
+                    <h4><i class="fas fa-chart-pie"></i> Distribución de Cartera</h4>
+                    
+                </div>
+
+                <div class="graph-container">
+                    <h4><i class="fas fa-chart-bar"></i> Rendimiento por Acción</h4>
+                
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

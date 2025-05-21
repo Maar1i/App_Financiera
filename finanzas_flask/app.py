@@ -106,10 +106,6 @@ def acciones():
                                .order_by(Acciones.fecha.desc())\
                                .all()
 
-    # Aquí iría la lógica para generar los gráficos
-    pie_div = generar_grafico_pie(transacciones)
-    bar_div = generar_grafico_barras(transacciones)
-
     return render_template('acciones.html', transacciones=transacciones)
 
 @app.route('/consulta-financiera')
