@@ -51,6 +51,18 @@
             padding: 20px;
             margin-bottom: 30px;
         }
+
+         .btn-custom {
+        background-color: #070262f5;
+        border-color: #070262f5;
+        color: white !important;
+        }
+        .btn-custom:hover {
+        background-color: #05014af5;
+        border-color: #05014af5;
+        }
+
+
     </style>
 </head>
 <body>
@@ -64,14 +76,6 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="homeDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-home"></i> Home
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="homeDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">Inicio</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('inversiones') }}">Inversiones</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('consulta_financiera') }}">Consulta Financiera</a></li>
-                        </ul>
                     </li>
                     <li class="nav-item">
                         <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
@@ -87,10 +91,12 @@
     <!-- Franja azul -->
     <div class="blue-stripe">
         <div class="container d-flex justify-content-center">
-            <a href="{{ url_for('dashboard') }}" class="menu-item">Dashboard</a>
-            <a href="{{ url_for('indicadores') }}" class="menu-item">Indicadores</a>
-            <a href="{{ url_for('asistente') }}" class="menu-item">Asistente IA</a>
-            <a href="{{ url_for('inversiones') }}" class="menu-item">Inversiones</a>
+            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('indicadores') }}" class="menu-item">DIVISAS?</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
+
         </div>
     </div>
 
@@ -116,7 +122,7 @@
                             <div class="mb-3">
                                 <input type="number" step="0.01" class="form-control" name="amount" placeholder="Monto" required>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100">Agregar Transacción</button>
+                            <button type="submit" class="btn btn-custom w-100">Agregar Transacción</button>
                         </form>
                     </div>
                 </div>

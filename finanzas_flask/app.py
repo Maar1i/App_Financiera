@@ -52,6 +52,15 @@ class Transaction(db.Model):
     description = db.Column(db.String(200))
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Acciones(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    accion = db.Column(db.String(10), nullable=False)  # Símbolo de la acción (AAPL, MSFT, etc.)
+    tipo_operacion = db.Column(db.String(10), nullable=False)  # 'compra' o 'venta'
+    cantidad = db.Column(db.Integer, nullable=False)
+    precio = db.Column(db.Float, nullable=False)  # Precio por acción
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -65,14 +74,52 @@ def home():
 def inicio():
     return render_template('inicio.html', show_blue_stripe=True)
 
-@app.route('/inversiones')
-def inversiones():
-    return render_template('inversiones.html', show_blue_stripe=True)
+@app.route('/acciones', methods=['GET', 'POST'])
+@login_required
+def acciones():
+    if request.method == 'POST':
+        try:
+            accion = request.form.get('accion')
+            tipo_operacion = request.form.get('tipo_operacion')
+            cantidad = int(request.form.get('cantidad'))
+            precio = float(request.form.get('precio'))
+            
+            nueva_operacion = Acciones(
+                user_id=current_user.id,
+                accion=accion,
+                tipo_operacion=tipo_operacion,
+                cantidad=cantidad,
+                precio=precio,
+                fecha=datetime.utcnow()
+            )
+            
+            db.session.add(nueva_operacion)
+            db.session.commit()
+            flash('Operación registrada exitosamente!', 'success')
+        
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al registrar operación: {str(e)}', 'danger')
+
+    # Obtener operaciones del usuario
+    transacciones = Acciones.query.filter_by(user_id=current_user.id)\
+                               .order_by(Acciones.fecha.desc())\
+                               .all()
+
+    # Aquí iría la lógica para generar los gráficos
+    pie_div = generar_grafico_pie(transacciones)
+    bar_div = generar_grafico_barras(transacciones)
+
+    return render_template('acciones.html', transacciones=transacciones)
 
 @app.route('/consulta-financiera')
 def consulta_financiera():
     return render_template('consulta_financiera.html', show_blue_stripe=True)
 
+@app.route('/criptomonedas')
+@login_required
+def criptomonedas():
+    return render_template('criptomonedas.html', show_blue_stripe=True)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -148,6 +195,8 @@ def login():
             flash('Usuario no encontrado.')
 
     return render_template('login.html')
+
+
 @app.route('/logout')
 @login_required
 def logout():
