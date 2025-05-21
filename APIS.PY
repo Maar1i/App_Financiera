@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import yfinance as yf
 from datetime import datetime
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------
 # API_KEY de open router.ai
 API_KEY_IA = "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"
@@ -50,9 +51,8 @@ def tabla_precios(simbolo, fecha):
     fecha_final = datetime.now().date()
     
     data = yf.download(simbolo, start= fecha_inicial, end= fecha_final)
-    print(data.head())
+    return data
 
-tabla_precios("AAPL", "19/05/2025")
 
 #--------Funcion de la inversion con el paso del tiempo.--------------
 
@@ -71,7 +71,178 @@ def acciones(simbolo,fecha, inversion):
     precios['Valor_inversion'] = precios['Close'] * acciones_compradas # crea una columna de la variacion del valor de la accion con el tiempo.
     return precios # Regresa el data frame
 
-acciones("AAPL", "15/05/2025", 1000) #----Prueba
+acciones("AAPL", "15/05/2024", 1000) #----Prueba
+
+
+import plotly.graph_objects as go
+import pandas as pd
+
+# Ejecuta tu función para obtener el DataFrame
+df = acciones("AAPL", "15/05/2024", 1000)
+
+# El índice es la fecha, lo ponemos como columna y la renombramos para que coincida con tu ejemplo
+df = df.reset_index().rename(columns={"Date": "date", "Valor_inversion": "valor_inversion_usd"})
+
+# Asegúrate que la columna date sea datetime
+df["date"] = pd.to_datetime(df["date"])
+
+if not df.empty and "valor_inversion_usd" in df.columns:
+    frames = []
+    for i in range(2, len(df)):
+        frames.append(go.Frame(
+            data=[go.Scatter(
+                x=df["date"][:i],
+                y=df["valor_inversion_usd"][:i],
+                mode="lines",
+                line=dict(color="green", width=3)
+            )],
+            name=str(df["date"].iloc[i])
+        ))
+
+    fig = go.Figure(
+        data=[go.Scatter(
+            x=[df["date"].iloc[0], df["date"].iloc[1]],
+            y=[df["valor_inversion_usd"].iloc[0], df["valor_inversion_usd"].iloc[1]],
+            mode="lines",
+            line=dict(color="green", width=3)
+        )],
+        layout=go.Layout(
+            title="Evolución del valor de la inversión en Apple (AAPL)",
+            xaxis=dict(title="Fecha", range=[df["date"].min(), df["date"].max()]),
+            yaxis=dict(title="Valor en USD", range=[
+                df["valor_inversion_usd"].min() * 0.95,
+                df["valor_inversion_usd"].max() * 1.05
+            ]),
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(label="Play",
+                         method="animate",
+                         args=[None, {
+                             "frame": {"duration": 30, "redraw": True},
+                             "fromcurrent": True,
+                             "transition": {"duration": 0}
+                         }]),
+                    dict(label="Pause",
+                         method="animate",
+                         args=[[None], {
+                             "frame": {"duration": 0, "redraw": False},
+                             "mode": "immediate",
+                             "transition": {"duration": 0}
+                         }])
+                ]
+            )]
+        ),
+        frames=frames
+    )
+
+    fig.show()
+else:
+    print("No hay datos para graficar o falta la columna 'valor_inversion_usd'")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
