@@ -54,6 +54,25 @@ def tabla_precios(simbolo, fecha):
 
 tabla_precios("AAPL", "19/05/2025")
 
+#--------Funcion de la inversion con el paso del tiempo.--------------
+
+def acciones(simbolo,fecha, inversion):
+
+    precios = tabla_precios(simbolo, fecha) # data frame de el precio de la accion dependiendo de la empresa.
+    fecha_final = datetime.now().date()    # Fecha del dia de hoy.
+
+    try:
+        precio_compra = precios.loc[datetime.strptime(fecha, "%d/%m/%Y").date(), 'Close']  # dara el precio del dia de hoy (si esta.)
+    except KeyError:
+        precio_compra = precios['Close'].iloc[0] # si no encuentra el dato de la fecha actual, dara el de la fecha mas reciente.
+
+    acciones_compradas = inversion / precio_compra # formula para calcular el numero de acciones compradas con el precio de la accion en esa fecha.
+
+    precios['Valor_inversion'] = precios['Close'] * acciones_compradas # crea una columna de la variacion del valor de la accion con el tiempo.
+    return precios # Regresa el data frame
+
+acciones("AAPL", "15/05/2025", 1000) #----Prueba
+
 
 
 #--------------------API DE CRYPTO------------------------------------------------------------------------------------------------
