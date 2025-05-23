@@ -1,24 +1,271 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Asistente Financiero IA</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente Financiero</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        
+        .navbar {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .navbar {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .blue-stripe {
+            background-color: #070262f5;
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .menu-item:hover {
+            color: #cfe2ff;
+        }
+        .action-card {
+            border-left: 4px solid #070262f5;
+            margin-bottom: 10px;
+        }
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .btn-action {
+            background-color: #070262f5;
+            border-color: #070262f5;
+            color: white;
+        }
+        .btn-action:hover {
+            background-color: #05014af5;
+            border-color: #05014af5;
+            color: white;
+        }
+        .stock-logo {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            object-fit: contain;
+        }
+
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            max-width: 80%;
+            margin-left: auto;
+        }
+        .ai-message {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            max-width: 80%;
+        }
+        .typing-indicator {
+            display: inline-block;
+            padding: 10px;
+        }
+        .typing-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #666;
+            margin: 0 2px;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+       
+        .ai-message strong {
+             font-weight: bold;
+            color: #070262f5;
+        }
+
+        .ai-message em {
+            font-style: italic;
+        }
+
+        .ai-message ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+
+        .ai-message li {
+            margin-bottom: 5px;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+    </style>
 </head>
 <body>
-    <h2>Asistente Financiero IA (DeepSeek)</h2>
+    <!-- Barra de navegación -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="#">Finanzas App</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    
+                    <li class="nav-item">
+                        <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Cerrar sesión</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-    <form method="POST">
-        <textarea name="pregunta" rows="4" cols="50" placeholder="Haz tu pregunta sobre finanzas..." required></textarea>
-        <br>
-        <button type="submit">Preguntar</button>
-    </form>
+    <!-- Franja azul -->
+    <div class="blue-stripe">
+        <div class="container d-flex justify-content-center">
+            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('indicadores') }}" class="menu-item">DIVISAS?</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financiera</a>
 
-    {% if respuesta %}
-        <h3>Respuesta de la IA:</h3>
-        <p>{{ respuesta }}</p>
-    {% endif %}
+        </div>
+    </div>
 
-    <br>
-    <a href="{{ url_for('dashboard') }}">Volver al panel</a>
+    <!-- Contenido principal del asistente -->
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Asistente Financiero</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="chat-container" id="chatContainer">
+                            <!-- Aquí aparecerán los mensajes -->
+                            <div class="ai-message">
+                                ¡Hola! Soy tu asistente financiero. ¿En qué puedo ayudarte hoy? Puedes preguntarme sobre:
+                                <ul>
+                                    <li>Presupuestos y ahorro</li>
+                                    <li>Inversiones</li>
+                                    <li>Análisis de tus transacciones</li>
+                                    <li>Consejos financieros</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <form id="consultaForm">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="userInput" placeholder="Escribe tu pregunta..." required>
+                                <button class="btn btn-custom" type="submit">
+                                    <i class="fas fa-paper-plane"></i> Enviar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript para manejar las consultas -->
+    <script>
+        document.getElementById('consultaForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+    
+            const userInput = document.getElementById('userInput');
+            const chatContainer = document.getElementById('chatContainer');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const question = userInput.value.trim();
+
+            if (!question) {
+                showAlert('Por favor escribe tu pregunta', 'warning');
+                return;
+            }
+    
+            // Deshabilitar el botón durante la solicitud
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            
+            // Mostrar pregunta del usuario
+            addMessageToChat(question, 'user');
+            userInput.value = '';
+    
+            try {
+                const response = await fetch("{{ url_for('asistente') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `pregunta=${encodeURIComponent(question)}`
+                });
+        
+                const data = await response.json();
+        
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error en el servidor');
+                }
+        
+                // Mostrar respuesta de la IA
+                addMessageToChat(data.respuesta, 'ai');
+        
+            } catch (error) {
+                console.error('Error:', error);
+                addMessageToChat(`
+                    <strong>Error:</strong> ${error.message || 'Error al procesar tu pregunta'}
+                    <br><small>Intenta recargar la página o contactar al soporte.</small>
+                `, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+});
+
+        // Funciones auxiliares
+function addMessageToChat(content, type = 'ai') {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `${type}-message message`;
+    messageDiv.innerHTML = content;
+    document.getElementById('chatContainer').appendChild(messageDiv);
+}
+</script>
 </body>
 </html>
-

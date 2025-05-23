@@ -65,14 +65,10 @@ class Acciones(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Rutas
-@app.route('/')
-def home():
-    return redirect(url_for('login'))
-
-@app.route('/')
-def inicio():
-    return render_template('inicio.html', show_blue_stripe=True)
+@app.route('/indicadores')
+@login_required
+def indicadores():
+    return render_template('indicadores.html')
 
 @app.route('/acciones', methods=['GET', 'POST'])
 @login_required
@@ -107,10 +103,6 @@ def acciones():
                                .all()
 
     return render_template('acciones.html', transacciones=transacciones)
-
-@app.route('/consulta-financiera')
-def consulta_financiera():
-    return render_template('consulta_financiera.html', show_blue_stripe=True)
 
 @app.route('/criptomonedas')
 @login_required
@@ -198,7 +190,7 @@ def login():
 def logout():
     logout_user()
     flash('Has cerrado sesión correctamente.')
-    return redirect(url_for('home'))
+    return redirect(url_for('login'))
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
@@ -314,74 +306,91 @@ def dashboard():
         bar_div=bar_div
     )
 
-@app.route('/profile')
-@login_required
-def profile():
-    return render_template('profile.html', user=current_user)
 
-@app.route('/indicadores')
-@login_required
-def indicadores():
-    token = os.environ.get('BANXICO_TOKEN', 'tu_token_aqui')
-    try:
-        url = "https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno"
-        headers = {"Bmx-Token": token}
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        data = response.json()
-        valor = data['bmx']['series'][0]['datos'][0]['dato']
-        fecha = data['bmx']['series'][0]['datos'][0]['fecha']
-        
-        return render_template('indicadores.html', valor=valor, fecha=fecha)
-    
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f'Error obteniendo indicadores: {str(e)}')
-        return render_template('indicadores.html', valor="Error", fecha="No disponible")
-
-# Asistente Financiero
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', 'tu_api_key_aqui')
+DEEPSEEK_API_KEY = "sk-f96903a695404895a9cc563a7ee3c4c5"
 
 @app.route('/asistente', methods=['GET', 'POST'])
 @login_required
 def asistente():
-    respuesta_ia = None
-    if request.method == 'POST':
-        pregunta = request.form.get('pregunta', '').strip()
-        if not pregunta:
-            flash('Por favor ingresa una pregunta.')
-            return redirect(url_for('asistente'))
+    # Para solicitudes GET (cargar la página)
+    if request.method == 'GET':
+        return render_template("asistente.html")
+    
+    # Para solicitudes POST (formulario tradicional o AJAX)
+    pregunta = request.form.get('pregunta', '').strip()
+    if not pregunta:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Por favor ingresa una pregunta'}), 400
+        flash('Por favor ingresa una pregunta.')
+        return redirect(url_for('asistente'))
 
-        try:
-            response = requests.post(
-                'https://api.deepseek.com/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-                    'Content-Type': 'application/json',
-                },
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {
-                            "role": "system", 
-                            "content": "Eres un asesor financiero profesional. Responde de manera clara, concisa y útil sobre finanzas personales, inversiones y ahorro."
-                        },
-                        {"role": "user", "content": pregunta}
-                    ],
-                    "temperature": 0.7
-                },
-                timeout=15
-            )
-            response.raise_for_status()
-            data = response.json()
-            respuesta_ia = data["choices"][0]["message"]["content"]
+    try:
+        # Configuración de la solicitud a DeepSeek
+        headers = {
+            'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+            'Content-Type': 'application/json'
+        }
         
-        except requests.exceptions.RequestException as e:
-            app.logger.error(f'Error en API DeepSeek: {str(e)}')
-            respuesta_ia = "Lo siento, hubo un error al procesar tu pregunta. Por favor intenta más tarde."
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "Eres un asesor financiero profesional. Responde de manera clara, concisa y útil sobre: "
+                              "- Finanzas personales\n"
+                              "- Inversiones (acciones, criptomonedas)\n"
+                              "- Ahorro y presupuestos\n"
+                              "- Análisis de gastos\n"
+                              "Usa markdown para formatos básicos."
+                },
+                {"role": "user", "content": pregunta}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }
 
-    return render_template("asistente.html", respuesta=respuesta_ia)
+        response = requests.post(
+            'https://api.deepseek.com/chat/completions',
+            headers=headers,
+            json=payload,
+            timeout=20
+        )
+        response.raise_for_status()
+        data = response.json()
+        respuesta_ia = data["choices"][0]["message"]["content"]
+        
+        # Si es AJAX, devuelve JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'respuesta': respuesta_ia,
+                'status': 'success'
+            })
+        
+        # Si no es AJAX, renderiza template
+        return render_template("asistente.html", respuesta_ia=respuesta_ia)
+    
+    except requests.exceptions.Timeout:
+        error_msg = "El servidor tardó demasiado en responder. Por favor intenta con una pregunta más corta."
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f'Error en API DeepSeek: {str(e)}')
+        error_msg = "Error de conexión con el servicio de IA. Por favor intenta más tarde."
+    except Exception as e:
+        app.logger.error(f'Error inesperado: {str(e)}')
+        error_msg = "Error interno del servidor. Por favor contacta al soporte."
 
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'error': error_msg,
+            'status': 'error'
+        }), 500
+    
+    flash(error_msg)
+    return redirect(url_for('asistente'))
+                           
+
+
+
+    
 # Funciones de utilidad
 def enviar_recomendacion(email, asunto, cuerpo):
     try:
