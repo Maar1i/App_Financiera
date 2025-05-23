@@ -8,29 +8,42 @@ from plotly.offline import plot
 import plotly.graph_objs as go
 import os
 from datetime import datetime
-
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+import sqlite3
+from datetime import datetime, timedelta  # Añadir timedelta
+from flask_migrate import Migrate
+from random import randint
+from flask import session
+import secrets
+from datetime import datetime, timedelta
 
 
 app = Flask(__name__)
+#app.secret_key = 'clave_secreta'
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'una-clave-secreta-muy-segura'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'finanzas.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuración correo
-app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
-    MAIL_USE_TLS=True,
-    MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),  # Usar variable de entorno
-    MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD')   # Usar variable de entorno
-)
+# Actualiza la configuración del mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'tu_correo@gmail.com'
+app.config['MAIL_PASSWORD'] = 'tu_contraseña_de_app'  # No uses tu contraseña normal
+mail = Mail(app)
 
 # Asegurar que la carpeta instance exista
 os.makedirs(app.instance_path, exist_ok=True)
 
 # Inicialización extensiones
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 mail = Mail(app)
+s = URLSafeTimedSerializer(app.secret_key)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -40,7 +53,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), nullable=False, unique=True)
     email = db.Column(db.String(150), nullable=False, unique=True)
     password = db.Column(db.String(256), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow) 
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     
 class Transaction(db.Model):
@@ -185,6 +198,50 @@ def login():
     return render_template('login.html')
 
 
+from flask import Flask, render_template, redirect, url_for, flash, request
+from random import randint
+
+# Diccionario temporal para almacenar códigos
+reset_codes = {}
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Genera código de 6 dígitos
+            code = str(randint(100000, 999999))
+            reset_codes[email] = {
+                'code': code,
+                'user_id': user.id
+            }
+            return render_template('forgot_password.html', 
+                                code=code, 
+                                email=email,
+                                show_code=True)
+        else:
+            flash('Correo no registrado', 'danger')
+    
+    return render_template('forgot_password.html', show_code=False)
+
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    email = request.form.get('email')
+    code = request.form.get('code')
+    new_password = request.form.get('password')
+    
+    if email in reset_codes and reset_codes[email]['code'] == code:
+        user = User.query.get(reset_codes[email]['user_id'])
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash('Contraseña actualizada. ¡Inicia sesión!', 'success')
+        return redirect(url_for('login'))
+    else:
+        flash('Código incorrecto', 'danger')
+        return redirect(url_for('forgot_password'))
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -306,86 +363,47 @@ def dashboard():
         bar_div=bar_div
     )
 
-
 DEEPSEEK_API_KEY = "sk-f96903a695404895a9cc563a7ee3c4c5"
 
 @app.route('/asistente', methods=['GET', 'POST'])
 @login_required
 def asistente():
-    # Para solicitudes GET (cargar la página)
-    if request.method == 'GET':
-        return render_template("asistente.html")
-    
-    # Para solicitudes POST (formulario tradicional o AJAX)
-    pregunta = request.form.get('pregunta', '').strip()
-    if not pregunta:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'error': 'Por favor ingresa una pregunta'}), 400
-        flash('Por favor ingresa una pregunta.')
-        return redirect(url_for('asistente'))
+    respuesta_ia = None
+    if request.method == 'POST':
+        pregunta = request.form.get('pregunta', '').strip()
+        if not pregunta:
+            flash('Por favor ingresa una pregunta.')
+            return redirect(url_for('asistente'))
 
-    try:
-        # Configuración de la solicitud a DeepSeek
-        headers = {
-            'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        
-        payload = {
-            "model": "deepseek-chat",
-            "messages": [
-                {
-                    "role": "system", 
-                    "content": "Eres un asesor financiero profesional. Responde de manera clara, concisa y útil sobre: "
-                              "- Finanzas personales\n"
-                              "- Inversiones (acciones, criptomonedas)\n"
-                              "- Ahorro y presupuestos\n"
-                              "- Análisis de gastos\n"
-                              "Usa markdown para formatos básicos."
+        try:
+            response = requests.post(
+                'https://api.deepseek.com/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+                    'Content-Type': 'application/json',
                 },
-                {"role": "user", "content": pregunta}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 1000
-        }
-
-        response = requests.post(
-            'https://api.deepseek.com/chat/completions',
-            headers=headers,
-            json=payload,
-            timeout=20
-        )
-        response.raise_for_status()
-        data = response.json()
-        respuesta_ia = data["choices"][0]["message"]["content"]
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [
+                        {
+                            "role": "system", 
+                            "content": "Eres un asesor financiero profesional. Responde de manera clara, concisa y útil sobre finanzas personales, inversiones y ahorro."
+                        },
+                        {"role": "user", "content": pregunta}
+                    ],
+                    "temperature": 0.7
+                },
+                timeout=15
+            )
+            response.raise_for_status()
+            data = response.json()
+            respuesta_ia = data["choices"][0]["message"]["content"]
         
-        # Si es AJAX, devuelve JSON
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                'respuesta': respuesta_ia,
-                'status': 'success'
-            })
-        
-        # Si no es AJAX, renderiza template
-        return render_template("asistente.html", respuesta_ia=respuesta_ia)
-    
-    except requests.exceptions.Timeout:
-        error_msg = "El servidor tardó demasiado en responder. Por favor intenta con una pregunta más corta."
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f'Error en API DeepSeek: {str(e)}')
-        error_msg = "Error de conexión con el servicio de IA. Por favor intenta más tarde."
-    except Exception as e:
-        app.logger.error(f'Error inesperado: {str(e)}')
-        error_msg = "Error interno del servidor. Por favor contacta al soporte."
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f'Error en API DeepSeek: {str(e)}')
+            respuesta_ia = "Lo siento, hubo un error al procesar tu pregunta. Por favor intenta más tarde."
 
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({
-            'error': error_msg,
-            'status': 'error'
-        }), 500
-    
-    flash(error_msg)
-    return redirect(url_for('asistente'))
+    return render_template("asistente.html", respuesta_ia=respuesta_ia)
                            
 
 

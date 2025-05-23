@@ -205,67 +205,102 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- JavaScript para manejar las consultas -->
-    <script>
-        document.getElementById('consultaForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+<script>
+document.getElementById('consultaForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
     
-            const userInput = document.getElementById('userInput');
-            const chatContainer = document.getElementById('chatContainer');
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const question = userInput.value.trim();
-
-            if (!question) {
-                showAlert('Por favor escribe tu pregunta', 'warning');
-                return;
-            }
+    const userInput = document.getElementById('userInput');
+    const chatContainer = document.getElementById('chatContainer');
+    const question = userInput.value.trim();
     
-            // Deshabilitar el botón durante la solicitud
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    if (!question) return;
+    
+    // Mostrar la pregunta del usuario
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.textContent = question;
+    chatContainer.appendChild(userMessage);
+    
+    // Mostrar indicador de que la IA está escribiendo
+    const typingIndicator = document.createElement('div');
+    typingIndicator.className = 'ai-message typing-indicator';
+    typingIndicator.innerHTML = `
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+    `;
+    chatContainer.appendChild(typingIndicator);
+    
+    // Limpiar el input
+    userInput.value = '';
+    
+    // Desplazarse al fondo del chat
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    try {
+        // Llamar a tu endpoint Flask
+        const response = await fetch("{{ url_for('asistente') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                pregunta: question
+            })
+        });
+        
+        // Eliminar el indicador de escritura
+        chatContainer.removeChild(typingIndicator);
+        
+        if (response.ok) {
+            const data = await response.json();
             
-            // Mostrar pregunta del usuario
-            addMessageToChat(question, 'user');
-            userInput.value = '';
-    
-            try {
-                const response = await fetch("{{ url_for('asistente') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: `pregunta=${encodeURIComponent(question)}`
-                });
-        
-                const data = await response.json();
-        
-                if (!response.ok) {
-                    throw new Error(data.error || 'Error en el servidor');
-                }
-        
-                // Mostrar respuesta de la IA
-                addMessageToChat(data.respuesta, 'ai');
-        
-            } catch (error) {
-                console.error('Error:', error);
-                addMessageToChat(`
-                    <strong>Error:</strong> ${error.message || 'Error al procesar tu pregunta'}
-                    <br><small>Intenta recargar la página o contactar al soporte.</small>
-                `, 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+            if (data.status === 'success') {
+                // Mostrar la respuesta de la IA con formato markdown básico
+                const aiMessage = document.createElement('div');
+                aiMessage.className = 'ai-message';
+                
+                // Convertir markdown simple a HTML
+                const formattedText = data.respuesta
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // negritas
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>') // cursivas
+                    .replace(/\n\n/g, '<br><br>') // párrafos
+                    .replace(/\n/g, '<br>'); // saltos de línea
+                
+                aiMessage.innerHTML = formattedText;
+                chatContainer.appendChild(aiMessage);
+            } else {
+                throw new Error(data.error || 'Error en la respuesta');
             }
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error en el servidor');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        
+        // Mostrar mensaje de error
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'ai-message';
+        errorMessage.innerHTML = `
+            <strong>Error:</strong> ${error.message || 'No se pudo obtener respuesta del asistente.'}
+            <br><br>Por favor intenta nuevamente.
+        `;
+        chatContainer.appendChild(errorMessage);
+    }
+    
+    // Desplazarse al fondo del chat
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 });
 
-        // Funciones auxiliares
-function addMessageToChat(content, type = 'ai') {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `${type}-message message`;
-    messageDiv.innerHTML = content;
-    document.getElementById('chatContainer').appendChild(messageDiv);
-}
+// Opcional: Permitir enviar con Enter (excepto si se presiona Shift+Enter)
+document.getElementById('userInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('consultaForm').dispatchEvent(new Event('submit'));
+    }
+});
 </script>
 </body>
 </html>
