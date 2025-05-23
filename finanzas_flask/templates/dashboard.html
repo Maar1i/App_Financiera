@@ -109,22 +109,75 @@
                         <h4>Nueva Transacción</h4>
                     </div>
                     <div class="card-body">
-                        <form method="post">
+                        <form method="post" action="{{ url_for('dashboard') }}" id="transactionForm">
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de transacción:</label>
+                            <select class="form-select" name="type" required>
+                                <option value="" disabled selected>Seleccione tipo</option>
+                                <option value="ingreso">Ingreso</option>
+                                <option value="gasto">Gasto</option>
+                            </select>
+                        </div>
+
+                            <label class="form-label">Seleccione una categoría:</label>
+                            <select class="form-select" name="category" required>
+
+                                <option value="" disabled selected>Seleccione una categoría</option>
+
+                                <optgroup label="Vivienda">
+                                    <option value="Renta">Renta</option>
+                                    <option value="Servicios">Servicios</option>
+                                    <option value="Internet">Internet</option>
+                                    <option value="Mantenimiento">Mantenimiento</option>
+                                </optgroup>
+
+                                <optgroup label="Alimentación">
+                                    <option value="Supermercado">Supermercado</option>
+                                    <option value="Restaurantes">Restaurantes</option>
+                                </optgroup>
+
+                                <optgroup label="Transporte">
+                                    <option value="Gasolina">Gasolina</option>
+                                    <option value="Transporte">Transporte</option>
+                                    <option value="Auto">Auto</option>
+                                    <option value="Seguro de auto">Seguro de auto</option>
+                                </optgroup>
+
+                                <optgroup label="Personales">
+                                    <option value="Ropa">Ropa</option>
+                                    <option value="Personal">Cuidado personal</option>
+                                    <option value="Salud">Salud</option>
+                                    <option value="Ocio">Ocio</option>
+                                    <option value="Educacion">Educación</option>
+                                </optgroup>
+
+                                <optgroup label="Finanzas">
+                                    <option value="Deudas">Deudas</option>
+                                    <option value="Impuestos">Impuestos</option>
+                                    <option value="Donaciones">Donaciones</option>
+                                </optgroup>
+
+                                <optgroup label="Otros">
+                                    <option value="Suscripciones">Suscripciones</option>
+                                    <option value="Mascotas">Mascotas</option>
+                                    <option value="Regalos">Regalos</option>
+                                    <option value="Viajes">Viajes</option>
+                                    <option value="Tecnologia">Tecnología</option>
+                                    <option value="Ahorro">Ahorro</option>
+                                    <option value="Emergencias">Emergencias</option>
+                                    <option value="Honorarios">Honorarios</option>
+                                </optgroup>
+                            </select>
+                            
                             <div class="mb-3">
-                                <select class="form-select" name="type">
-                                    <option value="ingreso">Ingreso</option>
-                                    <option value="gasto">Gasto</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <input type="text" class="form-control" name="category" placeholder="Categoría" required>
-                            </div>
-                            <div class="mb-3">
+                                <label class="form-label">Monto:</label>
                                 <input type="number" step="0.01" class="form-control" name="amount" placeholder="Monto" required>
                             </div>
+        
                             <button type="submit" class="btn btn-custom w-100">Agregar Transacción</button>
                         </form>
                     </div>
+
                 </div>
 
                 <div class="card">
@@ -167,5 +220,41 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+    
+        const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+    
+        // Mostrar estado de carga
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+        
+            if (response.ok) {
+                // Recargar la página para ver los cambios
+                window.location.reload();
+            } else {
+                const error = await response.text();
+                throw new Error(error || 'Error en el servidor');
+            }   
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            // Restaurar botón
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Agregar Transacción';
+        }
+});
+</script>
 </body>
 </html>

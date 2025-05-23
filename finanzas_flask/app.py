@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from flask_mail import Mail, Message
@@ -205,12 +205,20 @@ def logout():
 def dashboard():
     if request.method == 'POST':
         try:
+            # Verificar si es una solicitud AJAX
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            
             tipo = request.form.get('type')
             categoria = request.form.get('category')
             monto = float(request.form.get('amount', 0))
             descripcion = request.form.get('description', '').strip()
 
             if not tipo or not categoria or monto <= 0:
+                if is_ajax:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Por favor completa todos los campos correctamente.'
+                    }), 400
                 flash('Por favor completa todos los campos correctamente.')
                 return redirect(url_for('dashboard'))
 
@@ -224,14 +232,27 @@ def dashboard():
             
             db.session.add(nueva_transaccion)
             db.session.commit()
+            
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Transacción registrada exitosamente!'
+                })
             flash('Transacción registrada exitosamente!')
+            return redirect(url_for('dashboard'))
         
         except ValueError:
-            flash('El monto debe ser un número válido.')
+            message = 'El monto debe ser un número válido.'
+            if is_ajax:
+                return jsonify({'success': False, 'message': message}), 400
+            flash(message)
         except Exception as e:
             db.session.rollback()
             app.logger.error(f'Error añadiendo transacción: {str(e)}')
-            flash('Ocurrió un error al registrar la transacción.')
+            message = 'Ocurrió un error al registrar la transacción.'
+            if is_ajax:
+                return jsonify({'success': False, 'message': message}), 500
+            flash(message)
 
     # Obtener transacciones del usuario
     transacciones = Transaction.query.filter_by(user_id=current_user.id)\
