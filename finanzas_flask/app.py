@@ -78,6 +78,11 @@ class Acciones(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+@app.route('/')
+def index():
+    return redirect(url_for('dashboard'))  # O render_template("index.html")
+
+
 @app.route('/indicadores')
 @login_required
 def indicadores():
@@ -249,61 +254,74 @@ def logout():
     flash('Has cerrado sesión correctamente.')
     return redirect(url_for('login'))
 
+
+DEEPSEEK_API_KEY = "sk-f96903a695404895a9cc563a7ee3c4c5"
+
+@app.route('/asistente', methods=['GET', 'POST'])
+@login_required
+def asistente():
+    if request.method == 'GET':
+        return render_template("asistente.html")
+    
+    # Obtener datos según el tipo de solicitud
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
+    try:
+        if is_ajax:
+            data = request.get_json()
+            pregunta = data.get('pregunta', '').strip()
+        else:
+            pregunta = request.form.get('pregunta', '').strip()
+        
+        if not pregunta:
+            return jsonify({'error': 'La pregunta no puede estar vacía'}), 400
+            
+        # Llamada a la API de DeepSeek
+        headers = {
+            'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "Eres un experto financiero que responde preguntas claras y prácticas en español."
+                },
+                {"role": "user", "content": pregunta}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }
+        
+        response = requests.post(
+            'https://api.deepseek.com/chat/completions',
+            headers=headers,
+            json=payload,
+            timeout=20
+        )
+        response.raise_for_status()
+        
+        respuesta = response.json()["choices"][0]["message"]["content"]
+        
+        return jsonify({
+            'success': True,
+            'respuesta': respuesta
+        })
+        
+    except Exception as e:
+        app.logger.error(f'Error en asistente: {str(e)}')
+        return jsonify({
+            'error': 'Error al procesar tu pregunta',
+            'details': str(e)
+        }), 500
+    
+
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
-    if request.method == 'POST':
-        try:
-            # Verificar si es una solicitud AJAX
-            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            
-            tipo = request.form.get('type')
-            categoria = request.form.get('category')
-            monto = float(request.form.get('amount', 0))
-            descripcion = request.form.get('description', '').strip()
-
-            if not tipo or not categoria or monto <= 0:
-                if is_ajax:
-                    return jsonify({
-                        'success': False,
-                        'message': 'Por favor completa todos los campos correctamente.'
-                    }), 400
-                flash('Por favor completa todos los campos correctamente.')
-                return redirect(url_for('dashboard'))
-
-            nueva_transaccion = Transaction(
-                user_id=current_user.id,
-                type=tipo,
-                category=categoria,
-                amount=monto,
-                description=descripcion
-            )
-            
-            db.session.add(nueva_transaccion)
-            db.session.commit()
-            
-            if is_ajax:
-                return jsonify({
-                    'success': True,
-                    'message': 'Transacción registrada exitosamente!'
-                })
-            flash('Transacción registrada exitosamente!')
-            return redirect(url_for('dashboard'))
-        
-        except ValueError:
-            message = 'El monto debe ser un número válido.'
-            if is_ajax:
-                return jsonify({'success': False, 'message': message}), 400
-            flash(message)
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f'Error añadiendo transacción: {str(e)}')
-            message = 'Ocurrió un error al registrar la transacción.'
-            if is_ajax:
-                return jsonify({'success': False, 'message': message}), 500
-            flash(message)
-
-    # Obtener transacciones del usuario
+    # Obtener transacciones del usuario (para GET y POST)
     transacciones = Transaction.query.filter_by(user_id=current_user.id)\
                                    .order_by(Transaction.date.desc())\
                                    .all()
@@ -353,6 +371,40 @@ def dashboard():
     )
     bar_div = plot(bar, output_type='div')
 
+    # Manejo de solicitudes POST (añadir nuevas transacciones)
+    if request.method == 'POST':
+        try:
+            tipo = request.form.get('type')
+            categoria = request.form.get('category')
+            monto = float(request.form.get('amount', 0))
+            descripcion = request.form.get('description', '').strip()
+
+            if not tipo or not categoria or monto <= 0:
+                flash('Por favor completa todos los campos correctamente.')
+                return redirect(url_for('dashboard'))
+
+            nueva_transaccion = Transaction(
+                user_id=current_user.id,
+                type=tipo,
+                category=categoria,
+                amount=monto,
+                description=descripcion
+            )
+            
+            db.session.add(nueva_transaccion)
+            db.session.commit()
+            flash('Transacción registrada exitosamente!')
+            
+            # Actualizar los datos después de añadir nueva transacción
+            return redirect(url_for('dashboard'))
+
+        except ValueError:
+            flash('El monto debe ser un número válido.')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error añadiendo transacción: {str(e)}')
+            flash('Ocurrió un error al registrar la transacción.')
+
     return render_template(
         'dashboard.html',
         transacciones=transacciones,
@@ -363,48 +415,7 @@ def dashboard():
         bar_div=bar_div
     )
 
-DEEPSEEK_API_KEY = "sk-f96903a695404895a9cc563a7ee3c4c5"
-
-@app.route('/asistente', methods=['GET', 'POST'])
-@login_required
-def asistente():
-    respuesta_ia = None
-    if request.method == 'POST':
-        pregunta = request.form.get('pregunta', '').strip()
-        if not pregunta:
-            flash('Por favor ingresa una pregunta.')
-            return redirect(url_for('asistente'))
-
-        try:
-            response = requests.post(
-                'https://api.deepseek.com/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-                    'Content-Type': 'application/json',
-                },
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {
-                            "role": "system", 
-                            "content": "Eres un asesor financiero profesional. Responde de manera clara, concisa y útil sobre finanzas personales, inversiones y ahorro."
-                        },
-                        {"role": "user", "content": pregunta}
-                    ],
-                    "temperature": 0.7
-                },
-                timeout=15
-            )
-            response.raise_for_status()
-            data = response.json()
-            respuesta_ia = data["choices"][0]["message"]["content"]
-        
-        except requests.exceptions.RequestException as e:
-            app.logger.error(f'Error en API DeepSeek: {str(e)}')
-            respuesta_ia = "Lo siento, hubo un error al procesar tu pregunta. Por favor intenta más tarde."
-
-    return render_template("asistente.html", respuesta_ia=respuesta_ia)
-                           
+               
 
 
 

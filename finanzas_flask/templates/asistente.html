@@ -74,6 +74,12 @@
             margin-bottom: 20px;
             background-color: #f9f9f9;
         }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
         .user-message {
             background-color: #e3f2fd;
             padding: 10px;
@@ -104,6 +110,41 @@
         }
 
        
+        .error-message {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+
+        .message-form .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-form input {
+            flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        }
+
+        .message-form button {
+            padding: 10px 20px;
+            background: #070262f5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .message-form button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
         .ai-message strong {
              font-weight: bold;
             color: #070262f5;
@@ -187,9 +228,9 @@
                             </div>
                         </div>
                         
-                        <form id="consultaForm">
+                       <form id="consultaForm" class="message-form">
                             <div class="input-group mb-3">
-                                <input type="text" class="form-control" id="userInput" placeholder="Escribe tu pregunta..." required>
+                                <input type="text" class="form-control" id="userInput" name="pregunta" placeholder="Escribe tu pregunta..." required>
                                 <button class="btn btn-custom" type="submit">
                                     <i class="fas fa-paper-plane"></i> Enviar
                                 </button>
@@ -206,101 +247,77 @@
     
     <!-- JavaScript para manejar las consultas -->
 <script>
-document.getElementById('consultaForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const userInput = document.getElementById('userInput');
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('consultaForm');
     const chatContainer = document.getElementById('chatContainer');
-    const question = userInput.value.trim();
     
-    if (!question) return;
-    
-    // Mostrar la pregunta del usuario
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.textContent = question;
-    chatContainer.appendChild(userMessage);
-    
-    // Mostrar indicador de que la IA está escribiendo
-    const typingIndicator = document.createElement('div');
-    typingIndicator.className = 'ai-message typing-indicator';
-    typingIndicator.innerHTML = `
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-    `;
-    chatContainer.appendChild(typingIndicator);
-    
-    // Limpiar el input
-    userInput.value = '';
-    
-    // Desplazarse al fondo del chat
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-    
-    try {
-        // Llamar a tu endpoint Flask
-        const response = await fetch("{{ url_for('asistente') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-                pregunta: question
-            })
-        });
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
         
-        // Eliminar el indicador de escritura
-        chatContainer.removeChild(typingIndicator);
+        const preguntaInput = form.elements['pregunta'];
+        const pregunta = preguntaInput.value.trim();
         
-        if (response.ok) {
+        if (!pregunta) {
+            alert('Por favor escribe tu pregunta');
+            return;
+        }
+
+        // Mostrar pregunta del usuario
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.className = 'user-message';
+        userMessageDiv.textContent = pregunta;
+        chatContainer.appendChild(userMessageDiv);
+        
+        // Mostrar indicador de carga
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'ai-message loading';
+        loadingDiv.innerHTML = '<div class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+        chatContainer.appendChild(loadingDiv);
+        
+        // Deshabilitar el formulario durante la solicitud
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        preguntaInput.disabled = true;
+        
+        try {
+            const response = await fetch('/asistente', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ pregunta: pregunta })
+            });
+            
             const data = await response.json();
             
-            if (data.status === 'success') {
-                // Mostrar la respuesta de la IA con formato markdown básico
-                const aiMessage = document.createElement('div');
-                aiMessage.className = 'ai-message';
-                
-                // Convertir markdown simple a HTML
-                const formattedText = data.respuesta
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // negritas
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>') // cursivas
-                    .replace(/\n\n/g, '<br><br>') // párrafos
-                    .replace(/\n/g, '<br>'); // saltos de línea
-                
-                aiMessage.innerHTML = formattedText;
-                chatContainer.appendChild(aiMessage);
-            } else {
-                throw new Error(data.error || 'Error en la respuesta');
+            if (!response.ok) {
+                throw new Error(data.error || 'Error en el servidor');
             }
-        } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Error en el servidor');
+            
+            // Reemplazar indicador de carga con la respuesta
+            const respuestaDiv = document.createElement('div');
+            respuestaDiv.className = 'ai-message';
+            respuestaDiv.innerHTML = data.respuesta; // Usar innerHTML para renderizar formato Markdown
+            chatContainer.replaceChild(respuestaDiv, loadingDiv);
+            
+        } catch (error) {
+            // Mostrar mensaje de error
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'ai-message error-message';
+            errorDiv.textContent = `Error: ${error.message}`;
+            chatContainer.replaceChild(errorDiv, loadingDiv);
+            
+            console.error('Error:', error);
+        } finally {
+            // Restaurar formulario
+            submitBtn.disabled = false;
+            preguntaInput.disabled = false;
+            form.reset();
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
-    } catch (error) {
-        console.error('Error:', error);
-        
-        // Mostrar mensaje de error
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'ai-message';
-        errorMessage.innerHTML = `
-            <strong>Error:</strong> ${error.message || 'No se pudo obtener respuesta del asistente.'}
-            <br><br>Por favor intenta nuevamente.
-        `;
-        chatContainer.appendChild(errorMessage);
-    }
-    
-    // Desplazarse al fondo del chat
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    });
 });
-
-// Opcional: Permitir enviar con Enter (excepto si se presiona Shift+Enter)
-document.getElementById('userInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        document.getElementById('consultaForm').dispatchEvent(new Event('submit'));
-    }
-});
-</script>
+</script>>
 </body>
 </html>
