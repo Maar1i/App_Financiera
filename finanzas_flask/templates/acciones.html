@@ -72,16 +72,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="homeDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-home"></i> Home
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="homeDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('dashboard') }}">Dashboard</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('acciones') }}">Acciones</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('consulta_financiera') }}">Consulta Financiera</a></li>
-                        </ul>
-                    </li>
+                    
                     <li class="nav-item">
                         <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
                     </li>
