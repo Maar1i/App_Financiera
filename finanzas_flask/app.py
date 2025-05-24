@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from flask_mail import Mail, Message
@@ -7,207 +7,641 @@ import requests
 from plotly.offline import plot
 import plotly.graph_objs as go
 import os
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+import sqlite3
+from datetime import datetime, timedelta  # Añadir timedelta
+from flask_migrate import Migrate
+from random import randint
+from flask import session
+import secrets
+from datetime import datetime, timedelta
+import yfinance as yf
+import logging
+from openai import OpenAI
+
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'clave-secreta'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///finanzas.db'
+#app.secret_key = 'clave_secreta'
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'una-clave-secreta-muy-segura'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'finanzas.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuración correo
-app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
-    MAIL_USE_TLS=True,
-    MAIL_USERNAME='tu_email@gmail.com',  # Cambia a tu correo
-    MAIL_PASSWORD='tu_contraseña_o_app_password'  # Mejor usa contraseña de aplicación
-)
+# Actualiza la configuración del mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'tu_correo@gmail.com'
+app.config['MAIL_PASSWORD'] = 'tu_contraseña_de_app'  # No uses tu contraseña normal
+mail = Mail(app)
+
+# Asegurar que la carpeta instance exista
+os.makedirs(app.instance_path, exist_ok=True)
 
 # Inicialización extensiones
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 mail = Mail(app)
+s = URLSafeTimedSerializer(app.secret_key)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# Configurar logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-# Modelos
+#Modelos
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), nullable=False, unique=True)
     email = db.Column(db.String(150), nullable=False, unique=True)
     password = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    type = db.Column(db.String(50))           # Agregado para tipo (ingreso/gasto)
-    category = db.Column(db.String(100))      # Agregado para categoría
+    type = db.Column(db.String(50), nullable=False)       # 'ingreso' o 'gasto'
+    category = db.Column(db.String(100), nullable=False)  # Ej: 'comida', 'salario'
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(200))
-    date = db.Column(db.DateTime)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Acciones(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    accion = db.Column(db.String(10), nullable=False)
+    tipo_operacion = db.Column(db.String(10), nullable=False, default='compra')
+    cantidad = db.Column(db.Float, nullable=False)
+    precio = db.Column(db.Float, nullable=False)
+    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha_actualizacion = db.Column(db.DateTime, onupdate=datetime.utcnow)
+
+    def validar(self):
+        errors = []
+        if not self.accion or len(self.accion) > 10:
+            errors.append("Símbolo de acción inválido")
+        if self.cantidad <= 0:
+            errors.append("Cantidad debe ser positiva")
+        if self.precio <= 0:
+            errors.append("Precio debe ser positivo")
+        return errors
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-
-# Rutas
-
 @app.route('/')
-def home():
-    return render_template('home.html')
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-
-        user = User.query.filter_by(username=username).first()
-        if user:
-            flash('El nombre de usuario ya existe.')
-            return redirect(url_for('register'))
-
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, email=email, password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-
-    
-        # Enviar correo de bienvenida
-        msg = Message('Bienvenido a tu App de Finanzas',
-                      sender=app.config['MAIL_USERNAME'],
-                      recipients=[email])
-        msg.body = f"Hola {username}, gracias por registrarte en nuestra app."
-        try:
-            mail.send(msg)
-        except Exception:
-            flash('Registro exitoso, pero fallo el envío de correo.')
-
-        flash('Registro exitoso. Ya puedes iniciar sesión.')
-        return redirect(url_for('login'))
-
-    return render_template('register.html')
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password, password):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Credenciales incorrectas.')
-            return redirect(url_for('login'))
-
-    return render_template('login.html')
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('home'))
-
-
-@app.route('/dashboard', methods=['GET', 'POST'])
-@login_required
-def dashboard():
-    if request.method == 'POST':
-        tipo = request.form['type']
-        categoria = request.form['category']
-        monto = float(request.form['amount'])
-        nueva = Transaction(user_id=current_user.id, type=tipo, category=categoria, amount=monto)
-        db.session.add(nueva)
-        db.session.commit()
-        flash('Transacción registrada exitosamente.')
-
-    transacciones = Transaction.query.filter_by(user_id=current_user.id).all()
-
-    ingresos = sum(t.amount for t in transacciones if t.type == 'ingreso')
-    gastos = sum(t.amount for t in transacciones if t.type == 'gasto')
-
-    pie = go.Figure(data=[go.Pie(labels=['Ingresos', 'Gastos'], values=[ingresos, gastos])])
-    pie_div = plot(pie, output_type='div')
-
-    categorias = {}
-    for t in transacciones:
-        if t.category not in categorias:
-            categorias[t.category] = 0
-        categorias[t.category] += t.amount if t.type == 'gasto' else -t.amount
-
-    bar = go.Figure([go.Bar(x=list(categorias.keys()), y=list(categorias.values()))])
-    bar.update_layout(title='Balance por categoría', xaxis_title='Categoría', yaxis_title='Monto')
-    bar_div = plot(bar, output_type='div')
-
-    return render_template('dashboard.html', transacciones=transacciones, pie_div=pie_div, bar_div=bar_div)
+def index():
+    return redirect(url_for('dashboard'))  # O render_template("index.html")
 
 
 @app.route('/indicadores')
 @login_required
 def indicadores():
-    token = "TU_TOKEN_AQUI"
-    url = "https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno"
-    headers = {"Bmx-Token": token}
-    response = requests.get(url, headers=headers)
+    return render_template('indicadores.html')
 
-    if response.status_code == 200:
-        data = response.json()
-        valor = data['bmx']['series'][0]['datos'][0]['dato']
-        fecha = data['bmx']['series'][0]['datos'][0]['fecha']
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Rutas de acciones
+@app.route('/acciones', methods=['GET', 'POST'])
+@login_required
+def acciones():
+    if request.method == 'POST':
+        try:
+            # Validación de datos
+            accion = request.form.get('accion', '').strip().upper()
+            try:
+                inversion = float(request.form.get('inversion', 0))
+            except ValueError:
+                flash('Monto de inversión inválido', 'danger')
+                return redirect(url_for('acciones'))
+
+            fecha_compra_str = request.form.get('fecha_compra', '')
+            
+            if not accion or inversion <= 0 or not fecha_compra_str:
+                flash('Complete todos los campos correctamente', 'danger')
+                return redirect(url_for('acciones'))
+
+            # Procesamiento de fecha
+            try:
+                fecha_compra = datetime.strptime(fecha_compra_str, '%Y-%m-%d')
+                if fecha_compra > datetime.utcnow():
+                    flash('La fecha no puede ser futura', 'danger')
+                    return redirect(url_for('acciones'))
+            except ValueError:
+                flash('Formato de fecha debe ser AAAA-MM-DD', 'danger')
+                return redirect(url_for('acciones'))
+
+            # Obtener datos de mercado
+            try:
+                ticker = yf.Ticker(accion)
+                data = ticker.history(
+                    start=fecha_compra.date(), 
+                    end=datetime.utcnow().date() + timedelta(days=1)
+                )
+                
+                if data.empty:
+                    flash('No se encontraron datos para esta acción', 'warning')
+                    return redirect(url_for('acciones'))
+                    
+                precio_compra = float(data['Close'].iloc[0])
+                cantidad = inversion / precio_compra
+                
+            except Exception as e:
+                logger.error(f"Error al obtener datos: {str(e)}")
+                flash('Error al obtener datos de mercado', 'danger')
+                return redirect(url_for('acciones'))
+
+            # Crear registro
+            nueva_operacion = Acciones(
+                user_id=current_user.id,
+                accion=accion,
+                tipo_operacion='compra',
+                cantidad=round(cantidad, 6),
+                precio=round(precio_compra, 2),
+                fecha=fecha_compra
+            )
+            
+            # Validar antes de guardar
+            if errors := nueva_operacion.validar():
+                for error in errors:
+                    flash(error, 'danger')
+                return redirect(url_for('acciones'))
+
+            db.session.add(nueva_operacion)
+            db.session.commit()
+            
+            # Verificar que realmente se guardó
+            op_guardada = db.session.get(Acciones, nueva_operacion.id)
+            if not op_guardada:
+                raise Exception("No se pudo verificar el guardado")
+            
+            flash('Inversión registrada exitosamente!', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error en transacción: {str(e)}")
+            flash('Error al guardar la operación', 'danger')
+        finally:
+            return redirect(url_for('acciones'))
+
+    # GET: Mostrar operaciones
+    transacciones = db.session.execute(
+        db.select(Acciones)
+        .filter_by(user_id=current_user.id)
+        .order_by(Acciones.fecha.desc())
+        .limit(5)
+    ).scalars()
+    
+    return render_template('acciones.html', transacciones=transacciones)
+
+@app.route('/eliminar_inversion/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_inversion(id):
+    try:
+        inversion = db.session.get(Acciones, id)
+        if not inversion or inversion.user_id != current_user.id:
+            return jsonify({"error": "Inversión no encontrada"}), 404
+            
+        db.session.delete(inversion)
+        db.session.commit()
+        return jsonify({"success": True})
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error eliminando inversión: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/accion_datos')
+@login_required
+def accion_datos():
+    try:
+        simbolo = request.args.get('simbolo', '').strip().upper()
+        fecha = request.args.get('fecha', '').strip()
+        try:
+            inversion = float(request.args.get('inversion', 0))
+        except ValueError:
+            return jsonify({"error": "Monto de inversión inválido"}), 400
+        
+        if not simbolo or not fecha or inversion <= 0:
+            return jsonify({"error": "Parámetros incompletos o inválidos"}), 400
+
+        fecha_inicial = datetime.strptime(fecha, "%Y-%m-%d").date()
+        fecha_final = datetime.utcnow().date()
+        
+        if fecha_inicial > fecha_final:
+            return jsonify({"error": "La fecha de compra no puede ser futura"}), 400
+
+        data = yf.download(simbolo, start=fecha_inicial, end=fecha_final + timedelta(days=1))
+        
+        if data.empty:
+            return jsonify({"error": "No se encontraron datos para esta acción"}), 404
+        
+        precio_compra = float(data['Close'].iloc[0])
+        precio_actual = float(data['Close'].iloc[-1])
+        acciones_compradas = inversion / precio_compra
+        valor_actual = acciones_compradas * precio_actual
+        rendimiento = ((valor_actual - inversion) / inversion) * 100
+        
+        historial = []
+        frames = []
+        
+        for i, (index, row) in enumerate(data.iterrows()):
+            valor = float(row['Close']) * acciones_compradas
+            historial.append({
+                "fecha": index.strftime("%Y-%m-%d"),
+                "valor": valor
+            })
+            
+            if i % 5 == 0 or i == len(data)-1:
+                frames.append({
+                    "name": index.strftime("%Y-%m-%d"),
+                    "data": historial.copy()
+                })
+        
+        return jsonify({
+            "rendimiento": {
+                "accion": simbolo,
+                "inversion": float(inversion),
+                "fecha_compra": fecha,
+                "valor_actual": float(valor_actual),
+                "rendimiento": float(rendimiento)
+            },
+            "historial": historial,
+            "frames": frames[-10:]
+        })
+        
+    except Exception as e:
+        logger.error(f'Error obteniendo datos de acción: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/analisis_accion', methods=['POST'])
+@login_required
+def analisis_accion():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Datos no proporcionados"}), 400
+            
+        accion = data.get('accion', '').strip().upper()
+        rendimiento = data.get('rendimiento', {})
+        
+        if not accion or not isinstance(rendimiento, dict):
+            return jsonify({"error": "Datos incompletos o inválidos"}), 400
+
+        pregunta = f"Analiza el rendimiento de la acción {accion}. "
+        pregunta += f"La inversión inicial fue de ${rendimiento.get('inversion', 0):.2f} y ahora vale ${rendimiento.get('valor_actual', 0):.2f} "
+        pregunta += f"(rendimiento del {rendimiento.get('rendimiento', 0):.2f}%). "
+        pregunta += "Proporciona un análisis conciso y recomendaciones basadas en este rendimiento."
+
+        # Configuración del cliente de DeepSeek
+        client = OpenAI(
+            api_key="sk-f96903a695404895a9cc563a7ee3c4c5",
+            base_url="https://api.deepseek.com"
+        )
+
+        # Llamada a la API de DeepSeek
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Eres un analista financiero experto. Proporciona análisis concisos y recomendaciones prácticas basadas en datos."
+                },
+                {"role": "user", "content": pregunta}
+            ],
+            temperature=0.7,
+            max_tokens=500,
+            stream=False
+        )
+        
+        analisis = response.choices[0].message.content
+        
+        return jsonify({"analisis": analisis})
+    
+    except Exception as e:
+        return jsonify({"error": f"Error al generar el análisis: {str(e)}"}), 500
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+@app.route('/criptomonedas')
+@login_required
+def criptomonedas():
+    return render_template('criptomonedas.html', show_blue_stripe=True)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+
+        # Validaciones
+        errors = []
+        
+        if not username:
+            errors.append('El nombre de usuario es obligatorio.')
+        if not email:
+            errors.append('El correo electrónico es obligatorio.')
+        if not password:
+            errors.append('La contraseña es obligatoria.')
+        if password != confirm_password:
+            errors.append('Las contraseñas no coinciden.')
+        if len(password) < 8:
+            errors.append('La contraseña debe tener al menos 8 caracteres.')
+
+        # Verificar si usuario o email ya existen
+        if User.query.filter_by(username=username).first():
+            errors.append('El nombre de usuario ya está en uso.')
+        if User.query.filter_by(email=email).first():
+            errors.append('El correo electrónico ya está registrado.')
+
+        if errors:
+            for error in errors:
+                flash(error)
+            return redirect(url_for('register'))
+
+        try:
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+            new_user = User(username=username, email=email, password=hashed_password)
+            
+            db.session.add(new_user)
+            db.session.commit()
+
+            flash('¡Registro exitoso! Por favor inicia sesión.')
+            return redirect(url_for('login'))  # Redirigir a login después de registro
+
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error en registro: {str(e)}')
+            flash('Ocurrió un error al registrar. Por favor intenta nuevamente.')
+            return redirect(url_for('register'))
+
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+
+        if not username or not password:
+            flash('Por favor ingresa usuario y contraseña.')
+            return redirect(url_for('login'))
+
+        user = User.query.filter_by(username=username).first()
+        
+        if user:
+            if check_password_hash(user.password, password):
+                login_user(user)
+                next_page = request.args.get('next')
+                return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+            else:
+                flash('Contraseña incorrecta.')
+        else:
+            flash('Usuario no encontrado.')
+
+    return render_template('login.html')
+
+
+from flask import Flask, render_template, redirect, url_for, flash, request
+from random import randint
+
+# Diccionario temporal para almacenar códigos
+reset_codes = {}
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Genera código de 6 dígitos
+            code = str(randint(100000, 999999))
+            reset_codes[email] = {
+                'code': code,
+                'user_id': user.id
+            }
+            return render_template('forgot_password.html', 
+                                code=code, 
+                                email=email,
+                                show_code=True)
+        else:
+            flash('Correo no registrado', 'danger')
+    
+    return render_template('forgot_password.html', show_code=False)
+
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    email = request.form.get('email')
+    code = request.form.get('code')
+    new_password = request.form.get('password')
+    
+    if email in reset_codes and reset_codes[email]['code'] == code:
+        user = User.query.get(reset_codes[email]['user_id'])
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash('Contraseña actualizada. ¡Inicia sesión!', 'success')
+        return redirect(url_for('login'))
     else:
-        valor = "Error"
-        fecha = "Error"
+        flash('Código incorrecto', 'danger')
+        return redirect(url_for('forgot_password'))
 
-    return render_template('indicadores.html', valor=valor, fecha=fecha)
+@app.route('/logout')  # 👈 Esta línea va después de /forgot_password y antes de las funciones como enviar_recomendacion()
+@login_required
+def logout():
+    # Limpiar todos los mensajes flash antes de cerrar sesión
+    session.pop('_flashes', None)
+    logout_user()
+    flash('Has cerrado sesión correctamente.', 'success')  # Este es el único mensaje que queremos mostrar
+    return redirect(url_for('login'))
 
 
-DEEPSEEK_API_KEY = "TU_API_KEY_DEEPSEEK"
+DEEPSEEK_API_KEY = "sk-f96903a695404895a9cc563a7ee3c4c5"
 
 @app.route('/asistente', methods=['GET', 'POST'])
 @login_required
 def asistente():
-    respuesta_ia = ""
-    if request.method == 'POST':
-        pregunta = request.form['pregunta']
-
-        try:
-            response = requests.post(
-                'https://api.deepseek.com/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-                    'Content-Type': 'application/json',
+    if request.method == 'GET':
+        return render_template("asistente.html")
+    
+    # Obtener datos según el tipo de solicitud
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
+    try:
+        if is_ajax:
+            data = request.get_json()
+            pregunta = data.get('pregunta', '').strip()
+        else:
+            pregunta = request.form.get('pregunta', '').strip()
+        
+        if not pregunta:
+            return jsonify({'error': 'La pregunta no puede estar vacía'}), 400
+            
+        # Llamada a la API de DeepSeek
+        headers = {
+            'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "Eres un experto financiero que responde preguntas claras y prácticas en español."
                 },
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {"role": "system", "content": "Eres un asesor financiero profesional. Da respuestas claras y útiles sobre finanzas personales, inversiones y ahorro."},
-                        {"role": "user", "content": pregunta}
-                    ]
-                }
+                {"role": "user", "content": pregunta}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }
+        
+        response = requests.post(
+            'https://api.deepseek.com/chat/completions',
+            headers=headers,
+            json=payload,
+            timeout=20
+        )
+        response.raise_for_status()
+        
+        respuesta = response.json()["choices"][0]["message"]["content"]
+        
+        return jsonify({
+            'success': True,
+            'respuesta': respuesta
+        })
+        
+    except Exception as e:
+        app.logger.error(f'Error en asistente: {str(e)}')
+        return jsonify({
+            'error': 'Error al procesar tu pregunta',
+            'details': str(e)
+        }), 500
+    
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+@login_required
+def dashboard():
+    # Obtener transacciones del usuario (para GET y POST)
+    transacciones = Transaction.query.filter_by(user_id=current_user.id)\
+                                   .order_by(Transaction.date.desc())\
+                                   .all()
+
+    # Calcular totales
+    ingresos = sum(t.amount for t in transacciones if t.type == 'ingreso')
+    gastos = sum(t.amount for t in transacciones if t.type == 'gasto')
+    balance = ingresos - gastos
+
+    # Gráfico de pastel
+    pie = go.Figure(data=[go.Pie(
+        labels=['Ingresos', 'Gastos'], 
+        values=[ingresos, gastos],
+        marker_colors=['#28a745', '#dc3545']
+    )])
+    pie.update_layout(title_text='Distribución de Ingresos y Gastos')
+    pie_div = plot(pie, output_type='div')
+
+    # Gráfico de barras por categoría
+    categorias = {}
+    for t in transacciones:
+        if t.category not in categorias:
+            categorias[t.category] = {'ingresos': 0, 'gastos': 0}
+        if t.type == 'ingreso':
+            categorias[t.category]['ingresos'] += t.amount
+        else:
+            categorias[t.category]['gastos'] += t.amount
+
+    bar = go.Figure()
+    bar.add_trace(go.Bar(
+        x=list(categorias.keys()),
+        y=[v['ingresos'] for v in categorias.values()],
+        name='Ingresos',
+        marker_color='#28a745'
+    ))
+    bar.add_trace(go.Bar(
+        x=list(categorias.keys()),
+        y=[v['gastos'] for v in categorias.values()],
+        name='Gastos',
+        marker_color='#dc3545'
+    ))
+    bar.update_layout(
+        title_text='Balance por Categoría',
+        xaxis_title='Categoría',
+        yaxis_title='Monto',
+        barmode='group'
+    )
+    bar_div = plot(bar, output_type='div')
+
+    # Manejo de solicitudes POST (añadir nuevas transacciones)
+    if request.method == 'POST':
+        try:
+            tipo = request.form.get('type')
+            categoria = request.form.get('category')
+            monto = float(request.form.get('amount', 0))
+            descripcion = request.form.get('description', '').strip()
+
+            if not tipo or not categoria or monto <= 0:
+                flash('Por favor completa todos los campos correctamente.')
+                return redirect(url_for('dashboard'))
+
+            nueva_transaccion = Transaction(
+                user_id=current_user.id,
+                type=tipo,
+                category=categoria,
+                amount=monto,
+                description=descripcion
             )
-            data = response.json()
-            respuesta_ia = data["choices"][0]["message"]["content"]
+            
+            db.session.add(nueva_transaccion)
+            db.session.commit()
+            flash('Transacción registrada exitosamente!')
+            
+            # Actualizar los datos después de añadir nueva transacción
+            return redirect(url_for('dashboard'))
 
+        except ValueError:
+            flash('El monto debe ser un número válido.')
         except Exception as e:
-            respuesta_ia = f"Ocurrió un error: {e}"
+            db.session.rollback()
+            app.logger.error(f'Error añadiendo transacción: {str(e)}')
+            flash('Ocurrió un error al registrar la transacción.')
 
-    return render_template("asistente.html", respuesta=respuesta_ia)
+    return render_template(
+        'dashboard.html',
+        transacciones=transacciones,
+        ingresos=ingresos,
+        gastos=gastos,
+        balance=balance,
+        pie_div=pie_div,
+        bar_div=bar_div
+    )
+
+               
 
 
+    
+# Funciones de utilidad
 def enviar_recomendacion(email, asunto, cuerpo):
-    msg = Message(asunto,
-                  sender=app.config['MAIL_USERNAME'],
-                  recipients=[email])
-    msg.body = cuerpo
-    mail.send(msg)
-
+    try:
+        msg = Message(
+            asunto,
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email]
+        )
+        msg.body = cuerpo
+        mail.send(msg)
+        return True
+    except Exception as e:
+        app.logger.error(f'Error enviando recomendación: {str(e)}')
+        return False
 
 def obtener_recomendacion_ia(pregunta):
     try:
@@ -220,43 +654,65 @@ def obtener_recomendacion_ia(pregunta):
             json={
                 "model": "deepseek-chat",
                 "messages": [
-                    {"role": "system", "content": "Eres un asesor financiero experto. Da recomendaciones cortas y prácticas."},
+                    {
+                        "role": "system", 
+                        "content": "Eres un asesor financiero experto. Da recomendaciones cortas, prácticas y directas."
+                    },
                     {"role": "user", "content": pregunta}
-                ]
-            }
+                ],
+                "max_tokens": 150
+            },
+            timeout=10
         )
+        response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
     except Exception as e:
-        return f"Error al obtener recomendación: {e}"
-
-
-def revisar_y_enviar_alerta(usuario_email):
-    token = "TU_TOKEN_BANXICO"
-    url = "https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno"
-    headers = {"Bmx-Token": token}
-    response = requests.get(url, headers=headers)
-
-    if response.status_code == 200:
-        data = response.json()
-        valor = float(data['bmx']['series'][0]['datos'][0]['dato'])
-
-        if valor > 20:
-            pregunta = f"¿Es buen momento para invertir con tipo de cambio actual {valor}?"
-            recomendacion = obtener_recomendacion_ia(pregunta)
-            asunto = "Recomendación Financiera - Buen momento para invertir"
-            enviar_recomendacion(usuario_email, asunto, recomendacion)
-
+        app.logger.error(f'Error obteniendo recomendación IA: {str(e)}')
+        return f"Lo siento, no pude generar una recomendación en este momento. Error: {str(e)}"
 
 @app.route('/enviar_alertas')
 @login_required
 def enviar_alertas():
     usuario_email = current_user.email
     revisar_y_enviar_alerta(usuario_email)
-    return "Alerta enviada si se cumplió la condición"
+    flash('Se han revisado los indicadores y enviado alertas si fueron necesarias.')
+    return redirect(url_for('dashboard'))
 
+def revisar_y_enviar_alerta(usuario_email):
+    token = os.environ.get('BANXICO_TOKEN', 'tu_token_aqui')
+    try:
+        url = "https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno"
+        headers = {"Bmx-Token": token}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        valor = float(data['bmx']['series'][0]['datos'][0]['dato'])
+
+        if valor > 20:
+            pregunta = f"El tipo de cambio actual es {valor}. ¿Qué recomendaciones tienes para invertir o ahorrar en esta situación?"
+            recomendacion = obtener_recomendacion_ia(pregunta)
+            asunto = f"Recomendación Financiera - Tipo de cambio en {valor}"
+            if enviar_recomendacion(usuario_email, asunto, recomendacion):
+                app.logger.info(f'Alerta enviada a {usuario_email} por tipo de cambio alto')
+            else:
+                app.logger.warning(f'Error enviando alerta a {usuario_email}')
+
+    except Exception as e:
+        app.logger.error(f'Error revisando alertas: {str(e)}')
+
+# Página de debug (solo para desarrollo)
+@app.route('/debug/users')
+def debug_users():
+    if app.env != 'development':
+        return "Acceso no permitido", 403
+        
+    users = User.query.all()
+    return '<br>'.join([f"ID: {u.id}, Usuario: {u.username}, Email: {u.email}, Creado: {u.created_at}" for u in users])
+
+# Crear tablas al iniciar
+with app.app_context():
+    db.create_all()
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)

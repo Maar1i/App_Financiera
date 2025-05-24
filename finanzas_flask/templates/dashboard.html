@@ -1,39 +1,260 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Financiero</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Plotly -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .navbar {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .blue-stripe {
+            background-color: #070262f5;
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .menu-item:hover {
+            color: #cfe2ff;
+        }
+        .transaction-card {
+            border-left: 4px solid;
+            margin-bottom: 10px;
+        }
+        .transaction-card.ingreso {
+            border-left-color: #28a745;
+        }
+        .transaction-card.gasto {
+            border-left-color: #dc3545;
+        }
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+         .btn-custom {
+        background-color: #070262f5;
+        border-color: #070262f5;
+        color: white !important;
+        }
+        .btn-custom:hover {
+        background-color: #05014af5;
+        border-color: #05014af5;
+        }
+
+
+    </style>
 </head>
 <body>
-    <h2>Hola, {{ current_user.username }}</h2>
+    <!-- Barra de navegación -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="#">Finanzas App</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                    </li>
+                    <li class="nav-item">
+                        <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Cerrar sesión</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-    <form method="post">
-        <select name="type">
-            <option value="ingreso">Ingreso</option>
-            <option value="gasto">Gasto</option>
-        </select>
-        <input type="text" name="category" placeholder="Categoría" required>
-        <input type="number" step="0.01" name="amount" placeholder="Monto" required>
-        <button type="submit">Agregar</button>
-    </form>
+    <!-- Franja azul -->
+    <div class="blue-stripe">
+        <div class="container d-flex justify-content-center">
+            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('indicadores') }}" class="menu-item">DIVISAS?</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
 
-    <h3>Transacciones</h3>
-    <ul>
-        {% for t in transacciones %}
-            <li>{{ t.date }} - {{ t.type }} - {{ t.category }}: ${{ t.amount }}</li>
-        {% endfor %}
-    </ul>
+        </div>
+    </div>
 
-    <h3>Gráfico Ingresos vs Gastos</h3>
-    {{ pie_div|safe }}
+    <!-- Contenido principal -->
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-md-5">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4>Nueva Transacción</h4>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="{{ url_for('dashboard') }}" id="transactionForm">
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de transacción:</label>
+                            <select class="form-select" name="type" required>
+                                <option value="" disabled selected>Seleccione tipo</option>
+                                <option value="ingreso">Ingreso</option>
+                                <option value="gasto">Gasto</option>
+                            </select>
+                        </div>
 
-    <h3>Gráfico por Categoría</h3>
-    {{ bar_div|safe }}
+                            <label class="form-label">Seleccione una categoría:</label>
+                            <select class="form-select" name="category" required>
 
-    <br>
-    <a href="{{ url_for('logout') }}">Cerrar sesión</a>
-    <a href="{{ url_for('indicadores') }}">Ver Indicadores Económicos</a>
-    <a href="{{ url_for('asistente') }}">Consultar a la IA Financiera (DeepSeek)</a>
+                                <option value="" disabled selected>Seleccione una categoría</option>
 
+                                <optgroup label="Vivienda">
+                                    <option value="Renta">Renta</option>
+                                    <option value="Servicios">Servicios</option>
+                                    <option value="Internet">Internet</option>
+                                    <option value="Mantenimiento">Mantenimiento</option>
+                                </optgroup>
+
+                                <optgroup label="Alimentación">
+                                    <option value="Supermercado">Supermercado</option>
+                                    <option value="Restaurantes">Restaurantes</option>
+                                </optgroup>
+
+                                <optgroup label="Transporte">
+                                    <option value="Gasolina">Gasolina</option>
+                                    <option value="Transporte">Transporte</option>
+                                    <option value="Auto">Auto</option>
+                                    <option value="Seguro de auto">Seguro de auto</option>
+                                </optgroup>
+
+                                <optgroup label="Personales">
+                                    <option value="Ropa">Ropa</option>
+                                    <option value="Personal">Cuidado personal</option>
+                                    <option value="Salud">Salud</option>
+                                    <option value="Ocio">Ocio</option>
+                                    <option value="Educacion">Educación</option>
+                                </optgroup>
+
+                                <optgroup label="Finanzas">
+                                    <option value="Deudas">Deudas</option>
+                                    <option value="Impuestos">Impuestos</option>
+                                    <option value="Donaciones">Donaciones</option>
+                                </optgroup>
+
+                                <optgroup label="Otros">
+                                    <option value="Suscripciones">Suscripciones</option>
+                                    <option value="Mascotas">Mascotas</option>
+                                    <option value="Regalos">Regalos</option>
+                                    <option value="Viajes">Viajes</option>
+                                    <option value="Tecnologia">Tecnología</option>
+                                    <option value="Ahorro">Ahorro</option>
+                                    <option value="Emergencias">Emergencias</option>
+                                    <option value="Honorarios">Honorarios</option>
+                                </optgroup>
+                            </select>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Monto:</label>
+                                <input type="number" step="0.01" class="form-control" name="amount" placeholder="Monto" required>
+                            </div>
+        
+                            <button type="submit" class="btn btn-custom w-100">Agregar Transacción</button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Últimas Transacciones</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if transacciones %}
+                            <div class="list-group">
+                                {% for t in transacciones %}
+                                <div class="list-group-item transaction-card {{ t.type }}">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>{{ t.category }}</strong>
+                                        <span>${{ "%.2f"|format(t.amount) }}</span>
+                                    </div>
+                                    <small class="text-muted">{{ t.date.strftime('%d/%m/%Y %H:%M') }} - {{ t.type|capitalize }}</small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p>No hay transacciones registradas</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="graph-container">
+                    <h4>Resumen Financiero</h4>
+                    {{ pie_div|safe }}
+                </div>
+
+                <div class="graph-container">
+                    <h4>Análisis por Categoría</h4>
+                    {{ bar_div|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+    
+        const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+    
+        // Mostrar estado de carga
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+        
+            if (response.ok) {
+                // Recargar la página para ver los cambios
+                window.location.reload();
+            } else {
+                const error = await response.text();
+                throw new Error(error || 'Error en el servidor');
+            }   
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            // Restaurar botón
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Agregar Transacción';
+        }
+});
+</script>
 </body>
 </html>
