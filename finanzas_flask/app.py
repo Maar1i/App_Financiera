@@ -24,20 +24,20 @@ from openai import OpenAI
 
 
 app = Flask(__name__)
-#app.secret_key = 'clave_secreta'
 
+# Configuración general
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'una-clave-secreta-muy-segura'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'finanzas.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Configuración correo
-# Actualiza la configuración del mail
+# CONFIGURACIÓN DE CORREO CON GMAIL + CONTRASEÑA DE APLICACIÓN
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'tu_correo@gmail.com'
-app.config['MAIL_PASSWORD'] = 'tu_contraseña_de_app'  # No uses tu contraseña normal
+app.config['MAIL_USERNAME'] = 'app.financiera.flask@gmail.com'
+app.config['MAIL_PASSWORD'] = 'bwvapdfvfreydngr'  # No uses tu contraseña normal
 mail = Mail(app)
+
 
 # Asegurar que la carpeta instance exista
 os.makedirs(app.instance_path, exist_ok=True)
@@ -49,6 +49,7 @@ mail = Mail(app)
 s = URLSafeTimedSerializer(app.secret_key)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
 
 # Configurar logging
 logging.basicConfig(level=logging.DEBUG)
@@ -416,6 +417,8 @@ from random import randint
 # Diccionario temporal para almacenar códigos
 reset_codes = {}
 
+from flask_mail import Mail
+
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
@@ -423,36 +426,64 @@ def forgot_password():
         user = User.query.filter_by(email=email).first()
         
         if user:
-            # Genera código de 6 dígitos
-            code = str(randint(100000, 999999))
-            reset_codes[email] = {
-                'code': code,
-                'user_id': user.id
-            }
-            return render_template('forgot_password.html', 
-                                code=code, 
-                                email=email,
-                                show_code=True)
-        else:
-            flash('Correo no registrado', 'danger')
-    
-    return render_template('forgot_password.html', show_code=False)
+            try:
+                code = str(randint(100000, 999999))
+                reset_codes[email] = {
+                    'code': code,
+                    'user_id': user.id,
+                    'timestamp': datetime.utcnow()
+                }
+                
+                msg = Message(
+                    "Código de Recuperación",
+                    sender=app.config['MAIL_USERNAME'],
+                    recipients=[email],
+                    charset='utf-8'  # Añade esta línea
+                )
+                msg.body = f"""
+                Hola {user.username},
 
-@app.route('/reset_password', methods=['POST'])
-def reset_password():
-    email = request.form.get('email')
-    code = request.form.get('code')
-    new_password = request.form.get('password')
+                Tu código de verificación es: {code}
+
+                Ingresa este código en la página de recuperación.
+                """
+                mail.send(msg)
+                
+                flash('Código enviado. Revisa tu correo electrónico.', 'success')
+                return redirect(url_for('reset_password', email=email))
+                
+            except Exception as e:
+                flash(f'Error al enviar el correo: {str(e)}', 'danger')
+                app.logger.error(f"Error enviando correo: {str(e)}")
+        
+        else:
+            flash('Correo no registrado.', 'danger')
     
-    if email in reset_codes and reset_codes[email]['code'] == code:
-        user = User.query.get(reset_codes[email]['user_id'])
-        user.password = generate_password_hash(new_password)
-        db.session.commit()
-        flash('Contraseña actualizada. ¡Inicia sesión!', 'success')
-        return redirect(url_for('login'))
-    else:
-        flash('Código incorrecto', 'danger')
-        return redirect(url_for('forgot_password'))
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        code = request.form.get('code')
+        new_password = request.form.get('password')
+        
+        # Verificar código y user_id
+        if email in reset_codes and reset_codes[email]['code'] == code:
+            user = User.query.get(reset_codes[email]['user_id'])
+            if user:
+                user.password = generate_password_hash(new_password)
+                db.session.commit()
+                del reset_codes[email]  # Eliminar código usado
+                flash('Contraseña actualizada. ¡Inicia sesión!', 'success')
+                return redirect(url_for('login'))
+        
+        flash('Código incorrecto o expirado', 'danger')
+        return redirect(url_for('reset_password', email=email))
+    
+    # GET: Mostrar formulario
+    email = request.args.get('email')
+    return render_template('reset_password.html', email=email)
 
 @app.route('/logout')  # 👈 Esta línea va después de /forgot_password y antes de las funciones como enviar_recomendacion()
 @login_required
