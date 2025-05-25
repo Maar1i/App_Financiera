@@ -1,9 +1,572 @@
-<!-- templates/criptomonedas.html -->
-{% extends "dashboard.html" %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Criptomonedas - App Financiera</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .navbar { background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .blue-stripe { background-color: #070262f5; color: white; padding: 15px 0; margin-bottom: 20px; }
+        .menu-item { color: white; margin: 0 15px; text-decoration: none; font-weight: 500; }
+        .menu-item:hover { color: #cfe2ff; }
+        .graph-container { 
+            background: white; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            padding: 20px; 
+            margin-bottom: 15px;
+            height: 500px;
+            overflow: hidden;
+            position: relative;
+        }
+        .summary-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .ia-analysis-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .btn-action { background-color: #070262f5; border-color: #070262f5; color: white; }
+        .btn-action:hover { background-color: #05014af5; border-color: #05014af5; color: white; }
+        .operation-success { 
+            background-color: #d4edda; 
+            border-left: 5px solid #28a745;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            display: none;
+        }
+        .transaction-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: none;
+            background: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .transaction-btn:hover {
+            background-color: #f8f9fa;
+        }
+        .transaction-btn.active {
+            background-color: #e9ecef;
+            border-left: 3px solid #070262f5;
+        }
+        .transaction-item {
+            position: relative;
+            padding-right: 40px;
+            margin-bottom: 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        .delete-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #dc3545;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            color: #a71d2a;
+        }
+        #cryptoChart {
+            height: 450px;
+            width: 100%;
+            position: relative;
+        }
+        .positive-return {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .negative-return {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .table-summary th {
+            background-color: #070262f5;
+            color: white;
+        }
+        .ia-analysis-content {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #070262f5;
+            margin-top: 15px;
+        }
+        .ia-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .crypto-badge {
+            font-size: 0.8rem;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="#">Finanzas App</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Cerrar sesión</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-{% block content %}
-<div class="container">
-    <h2>Mercado de Criptomonedas</h2>
-    <!-- Contenido específico de criptomonedas -->
-</div>
-{% endblock %}
+    <div class="blue-stripe">
+        <div class="container d-flex justify-content-center">
+            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('indicadores') }}" class="menu-item">Divisas</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financiera</a>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-md-5">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4><i class="fas fa-plus-circle"></i> Nueva Inversión</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="cryptoForm" method="POST" action="{{ url_for('criptomonedas') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Seleccione Criptomoneda:</label>
+                                <select class="form-select" name="cripto" id="criptoSelect" required>
+                                    <option value="" disabled selected>Seleccione una criptomoneda</option>
+                                    <option value="bitcoin">Bitcoin (BTC-USD)</option>
+                                    <option value="ethereum">Ethereum (ETH-USD)</option>
+                                    <option value="tether">Tether (USDT-USD)</option>
+                                    <option value="binance-coin">Binance Coin (BNB-USD)</option>
+                                    <option value="solana">Solana (SOL-USD)</option>
+                                    <option value="usd-coin">USD Coin (USDC-USD)</option><option value="xrp">XRP (XRP-USD)</option>
+                                    <option value="dogecoin">Dogecoin (DOGE-USD)</option>
+                                    <option value="cardano">Cardano (ADA-USD)</option>
+                                    <option value="shiba-inu">Shiba Inu (SHIB-USD)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Fecha de inversión:</label>
+                                <input type="date" class="form-control" name="fecha_compra" id="fechaCompra" required max="">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Monto invertido (USD):</label>
+                                <input type="number" step="0.01" class="form-control" name="inversion" id="montoInvertido" required>
+                            </div>
+                            <button type="submit" class="btn btn-action w-100">
+                                <i class="fas fa-save"></i> Registrar Inversión
+                            </button>
+                        </form>
+                        
+                        <div id="operationSuccess" class="operation-success mt-3">
+                            <i class="fas fa-check-circle text-success"></i>
+                            <strong> Inversión registrada con éxito!</strong>
+                            <p id="successDetails" class="mb-0 mt-2"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-list"></i> Mis Últimas Inversiones</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshOperations()">
+                            <i class="fas fa-sync-alt"></i> Actualizar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="listaOperaciones">
+                            {% if transacciones %}
+                                {% for t in transacciones %}
+                                <div class="transaction-item">
+                                    <button class="transaction-btn" 
+                                            onclick="mostrarDetalle('{{ t.cripto }}', '{{ t.fecha.strftime('%Y-%m-%d') }}', {{ t.precio * t.cantidad }}, this)">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>{{ t.cripto|upper }}
+                                                <span class="badge bg-secondary crypto-badge">{{ t.simbolo }}</span>
+                                            </strong>
+                                            <span class="text-primary">
+                                                ${{ "%.2f"|format(t.precio * t.cantidad) }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">{{ t.fecha.strftime('%d/%m/%Y') }}</small>
+                                    </button>
+                                    <button class="delete-btn" onclick="eliminarInversionCripto({{ t.id }}, this)">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">No hay inversiones registradas.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="graph-container">
+                    <h4><i class="fas fa-chart-line"></i> Evolución de la Inversión</h4>
+                    <div id="cryptoChart">
+                        <div class="alert alert-info">
+                            Seleccione una inversión para ver su evolución
+                        </div>
+                    </div>
+                </div>
+
+                <div class="summary-container">
+                    <h5><i class="fas fa-table"></i> Resumen de la Inversión</h5>
+                    <div id="summaryContent">
+                        <div class="alert alert-info">
+                            Seleccione una inversión para ver el resumen
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ia-analysis-container">
+                    <h5><i class="fas fa-robot"></i> Análisis de IA</h5>
+                    <div id="iaAnalysisContent">
+                        <div class="alert alert-info">
+                            Seleccione una inversión para obtener un análisis de IA
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Configurar fecha máxima para el input de fecha
+        document.getElementById('fechaCompra').max = new Date().toISOString().split('T')[0];
+
+        document.getElementById('cryptoForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const successMsg = document.getElementById('operationSuccess');
+                    const successDetails = document.getElementById('successDetails');
+                    
+                    successDetails.innerHTML = `
+                        <strong>${formData.get('cripto').toUpperCase()}</strong> | 
+                        $${formData.get('inversion')} | 
+                        ${formData.get('fecha_compra')}
+                    `;
+                    
+                    successMsg.style.display = 'block';
+                    form.reset();
+                    refreshOperations();
+                    
+                    setTimeout(() => {
+                        successMsg.style.display = 'none';
+                    }, 5000);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error en el servidor');
+                }
+            } catch (error) {
+                alert('Error al registrar la inversión: ' + error.message);
+            }
+        });
+
+        async function refreshOperations() {
+            try {
+                const response = await fetch('/criptomonedas');
+                if (!response.ok) {
+                    throw new Error('Error al cargar las operaciones');
+                }
+                const text = await response.text();
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = text;
+                const newOperations = tempDiv.querySelector('#listaOperaciones').innerHTML;
+                document.getElementById('listaOperaciones').innerHTML = newOperations;
+            } catch (error) {
+                console.error('Error al actualizar operaciones:', error);
+                document.getElementById('listaOperaciones').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error al cargar las operaciones: ${error.message}
+                    </div>`;
+            }
+        }
+
+        async function mostrarDetalle(cripto, fecha, monto, elemento) {
+            // Limpiar selección previa
+            document.querySelectorAll('.transaction-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            elemento.classList.add('active');
+
+            try {
+                // Mostrar cargando
+                document.getElementById('cryptoChart').innerHTML = `
+                    <div class="ia-loading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <span class="ms-2">Cargando datos...</span>
+                    </div>`;
+                
+                document.getElementById('summaryContent').innerHTML = `
+                    <div class="ia-loading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <span class="ms-2">Cargando resumen...</span>
+                    </div>`;
+
+                const response = await fetch(`/cripto_datos?simbolo=${cripto}&fecha=${fecha}&inversion=${monto}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error al obtener los datos');
+                }
+
+                if (!data.historial || data.historial.length === 0) {
+                    throw new Error('No hay datos históricos disponibles');
+                }
+
+                crearGrafico(data.historial, cripto);
+                mostrarResumen(data.rendimiento);
+                obtenerAnalisisIA(cripto, data.rendimiento);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('cryptoChart').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error al cargar los datos: ${error.message}
+                    </div>`;
+                document.getElementById('summaryContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error al cargar el resumen: ${error.message}
+                    </div>`;
+                document.getElementById('iaAnalysisContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error al cargar el análisis: ${error.message}
+                    </div>`;
+            }
+        }
+
+        function crearGrafico(historial, cripto) {
+            const fechas = historial.map(item => new Date(item.fecha));
+            const valores = historial.map(item => item.valor);
+            
+            const trace = {
+                x: fechas,
+                y: valores,
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#070262f5', width: 3 },
+                name: 'Valor de la inversión',
+                fill: 'tozeroy',
+                fillcolor: 'rgba(7, 2, 98, 0.1)'
+            };
+            
+            const layout = {
+                title: `Evolución de ${cripto.toUpperCase()}`,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    b: 80,
+                    t: 60,
+                    pad: 4
+                },
+                xaxis: { 
+                    title: 'Fecha',
+                    showgrid: true,
+                    gridcolor: '#f0f0f0'
+                },
+                yaxis: { 
+                    title: 'Valor (USD)',
+                    showgrid: true,
+                    gridcolor: '#f0f0f0'
+                },
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    y: -0.2
+                },
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white'
+            };
+            
+            Plotly.newPlot('cryptoChart', [trace], layout, {displayModeBar: false});
+        }
+
+        function mostrarResumen(rendimiento) {
+            const returnClass = rendimiento.rendimiento >= 0 ? 'positive-return' : 'negative-return';
+            const returnSign = rendimiento.rendimiento >= 0 ? '+' : '';
+            
+            document.getElementById('summaryContent').innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover table-summary">
+                        <thead>
+                            <tr>
+                                <th>Criptomoneda</th>
+                                <th>Inversión Inicial</th>
+                                <th>Fecha de Inversión</th>
+                                <th>Valor Actual</th>
+                                <th>Rendimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${rendimiento.cripto.toUpperCase()} <span class="badge bg-secondary">${rendimiento.simbolo}</span></td>
+                                <td>$${rendimiento.inversion.toFixed(2)}</td>
+                                <td>${new Date(rendimiento.fecha_compra).toLocaleDateString()}</td>
+                                <td>$${rendimiento.valor_actual.toFixed(2)}</td>
+                                <td class="${returnClass}">${returnSign}${rendimiento.rendimiento.toFixed(2)}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3">
+                    <small class="text-muted">Última actualización: ${new Date().toLocaleString()}</small>
+                </div>`;
+        }
+
+        async function obtenerAnalisisIA(cripto, rendimiento) {
+            const iaContent = document.getElementById('iaAnalysisContent');
+            iaContent.innerHTML = `
+                <div class="ia-loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <span class="ms-2">Generando análisis con IA...</span>
+                </div>`;
+
+            try {
+                const response = await fetch('/analisis_cripto', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cripto: cripto,
+                        rendimiento: rendimiento
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error en la API');
+                }
+
+                const data = await response.json();
+                
+                iaContent.innerHTML = `
+                    <div class="ia-analysis-content">
+                        <h6>Análisis de ${cripto.toUpperCase()}</h6>
+                        <div class="mb-2">
+                            <small class="text-muted">${new Date().toLocaleString()}</small>
+                        </div>
+                        <p>${data.analisis.replace(/\n/g, '<br>')}</p>
+                        <small class="text-muted">Análisis generado por DeepSeek AI</small>
+                    </div>`;
+                
+            } catch (error) {
+                console.error('Error al obtener análisis IA:', error);
+                iaContent.innerHTML = `
+                    <div class="alert alert-warning">
+                        No se pudo generar el análisis: ${error.message}
+                    </div>`;
+            }
+        }
+
+        async function eliminarInversionCripto(id, elemento) {
+            if (!confirm('¿Estás seguro de que deseas eliminar esta inversión?')) {
+                return;
+            }
+            
+            const icon = elemento.querySelector('i');
+            icon.classList.replace('fa-trash-alt', 'fa-spinner', 'fa-spin');
+            
+            try {
+                const response = await fetch(`/eliminar_inversion_cripto/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al eliminar');
+                }
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.message || 'Error al eliminar');
+                }
+                
+                elemento.closest('.transaction-item').remove();
+                
+                if (document.querySelectorAll('.transaction-item').length === 0) {
+                    document.getElementById('listaOperaciones').innerHTML = `
+                        <div class="alert alert-info">
+                            No hay inversiones registradas.
+                        </div>`;
+                }
+                
+                // Si la inversión eliminada era la que se mostraba
+                if (elemento.closest('.transaction-item').querySelector('.transaction-btn.active')) {
+                    Plotly.purge('cryptoChart');
+                    document.getElementById('cryptoChart').innerHTML = `
+                        <div class="alert alert-info">
+                            Seleccione una inversión para ver su evolución
+                        </div>`;
+                    document.getElementById('summaryContent').innerHTML = `
+                        <div class="alert alert-info">
+                            Seleccione una inversión para ver el resumen
+                        </div>`;
+                    document.getElementById('iaAnalysisContent').innerHTML = `
+                        <div class="alert alert-info">
+                            Seleccione una inversión para obtener un análisis de IA
+                        </div>`;
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar la inversión: ' + error.message);
+            } finally {
+                icon.classList.replace('fa-spinner', 'fa-trash-alt');
+                icon.classList.remove('fa-spin');
+            }
+        }
+    </script>
+</body>
+</html>

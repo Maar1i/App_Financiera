@@ -23,6 +23,8 @@ import logging
 from openai import OpenAI
 
 
+
+
 app = Flask(__name__)
 
 # Configuración general
@@ -87,6 +89,30 @@ class Acciones(db.Model):
         errors = []
         if not self.accion or len(self.accion) > 10:
             errors.append("Símbolo de acción inválido")
+        if self.cantidad <= 0:
+            errors.append("Cantidad debe ser positiva")
+        if self.precio <= 0:
+            errors.append("Precio debe ser positivo")
+        return errors
+
+class Criptomonedas(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    cripto = db.Column(db.String(20), nullable=False)  # ID de la cripto en CoinCap (ej: bitcoin)
+    simbolo = db.Column(db.String(10), nullable=False)  # Símbolo (ej: BTC)
+    tipo_operacion = db.Column(db.String(10), nullable=False, default='compra')
+    cantidad = db.Column(db.Float, nullable=False)
+    precio = db.Column(db.Float, nullable=False)
+    fecha = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha_actualizacion = db.Column(db.DateTime, onupdate=datetime.utcnow)
+
+
+    def validar(self):
+        errors = []
+        if not self.cripto or len(self.cripto) > 20:
+            errors.append("ID de criptomoneda inválido")
+        if not self.simbolo or len(self.simbolo) > 10:
+            errors.append("Símbolo de criptomoneda inválido")
         if self.cantidad <= 0:
             errors.append("Cantidad debe ser positiva")
         if self.precio <= 0:
@@ -329,11 +355,262 @@ def analisis_accion():
         return jsonify({"error": f"Error al generar el análisis: {str(e)}"}), 500
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+CRIPTO_SIMBOLOS = {
+    "bitcoin": "BTC-USD",
+    "ethereum": "ETH-USD",
+    "tether": "USDT-USD",
+    "binance-coin": "BNB-USD",
+    "solana": "SOL-USD",
+    "usd-coin": "USDC-USD",
+    "xrp": "XRP-USD",
+    "dogecoin": "DOGE-USD",
+    "cardano": "ADA-USD",
+    "shiba-inu": "SHIB-USD"
+}
 
-@app.route('/criptomonedas')
+API_KEY_COINCAP = "837f7d007ff30e74547acd1bdc8d8c6e462f6b8f8b8528546f1c43357288ed95"
+
+
+
+
+#-----------------------------CRIPTOMONEDAS-----------------------------------------------------------------------------------------------------------------------------------
+
+@app.route('/criptomonedas', methods=['GET', 'POST'])
 @login_required
 def criptomonedas():
-    return render_template('criptomonedas.html', show_blue_stripe=True)
+    if request.method == 'POST':
+        try:
+            # Validación de datos
+            cripto = request.form.get('cripto', '').strip().lower()
+            try:
+                inversion = float(request.form.get('inversion', 0))
+            except ValueError:
+                flash('Monto de inversión inválido', 'danger')
+                return redirect(url_for('criptomonedas'))
+
+            fecha_compra_str = request.form.get('fecha_compra', '')
+            
+            if not cripto or inversion <= 0 or not fecha_compra_str or cripto not in CRIPTO_SIMBOLOS:
+                flash('Complete todos los campos correctamente', 'danger')
+                return redirect(url_for('criptomonedas'))
+
+            # Procesamiento de fecha
+            try:
+                fecha_compra = datetime.strptime(fecha_compra_str, '%Y-%m-%d')
+                if fecha_compra > datetime.utcnow():
+                    flash('La fecha no puede ser futura', 'danger')
+                    return redirect(url_for('criptomonedas'))
+            except ValueError:
+                flash('Formato de fecha debe ser AAAA-MM-DD', 'danger')
+                return redirect(url_for('criptomonedas'))
+
+            # Obtener datos de mercado usando yfinance
+            try:
+                ticker = yf.Ticker(CRIPTO_SIMBOLOS[cripto])
+                data = ticker.history(
+                    start=fecha_compra.date(), 
+                    end=datetime.utcnow().date() + timedelta(days=1)
+                )
+                
+                if data.empty:
+                    flash('No se encontraron datos para esta criptomoneda', 'warning')
+                    return redirect(url_for('criptomonedas'))
+                    
+                precio_compra = float(data['Close'].iloc[0])
+                cantidad = inversion / precio_compra
+                
+                # Obtener símbolo de la cripto (extraer de CRIPTO_SIMBOLOS)
+                simbolo = CRIPTO_SIMBOLOS[cripto].split('-')[0]
+                
+            except Exception as e:
+                logger.error(f"Error al obtener datos: {str(e)}")
+                flash('Error al obtener datos de mercado', 'danger')
+                return redirect(url_for('criptomonedas'))
+
+            # Crear registro
+            nueva_operacion = Criptomonedas(
+                user_id=current_user.id,
+                cripto=cripto,
+                simbolo=simbolo,
+                tipo_operacion='compra',
+                cantidad=round(cantidad, 8),
+                precio=round(precio_compra, 6),
+                fecha=fecha_compra
+            )
+            
+            # Validar antes de guardar
+            if errors := nueva_operacion.validar():
+                for error in errors:
+                    flash(error, 'danger')
+                return redirect(url_for('criptomonedas'))
+
+            db.session.add(nueva_operacion)
+            db.session.commit()
+            
+            # Verificar que realmente se guardó
+            op_guardada = db.session.get(Criptomonedas, nueva_operacion.id)
+            if not op_guardada:
+                raise Exception("No se pudo verificar el guardado")
+            
+            flash('Inversión registrada exitosamente!', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error en transacción: {str(e)}")
+            flash(f'Error al guardar la operación: {str(e)}', 'danger')
+        return redirect(url_for('criptomonedas'))
+
+    # GET: mostrar página y datos del usuario
+    transacciones = db.session.execute(
+        db.select(Criptomonedas)
+        .filter_by(user_id=current_user.id)
+        .order_by(Criptomonedas.fecha.desc())
+        .limit(5)
+    ).scalars()
+
+    return render_template('criptomonedas.html', transacciones=transacciones)
+
+@app.route('/eliminar_inversion_cripto/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_inversion_cripto(id):
+    try:
+        inversion = db.session.get(Criptomonedas, id)
+        if not inversion or inversion.user_id != current_user.id:
+            return jsonify({"error": "Inversión no encontrada o no autorizada"}), 404
+            
+        db.session.delete(inversion)
+        db.session.commit()
+        return jsonify({"success": True})
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error eliminando inversión en cripto: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+# Reemplazar la ruta de cripto_datos para usar yfinance
+@app.route('/cripto_datos')
+@login_required
+def cripto_datos():
+    try:
+        cripto = request.args.get('simbolo', '').strip().lower()
+        fecha = request.args.get('fecha', '').strip()
+        
+        try:
+            inversion = float(request.args.get('inversion', 0))
+            if inversion <= 0:
+                return jsonify({"error": "El monto debe ser mayor a cero"}), 400
+        except ValueError:
+            return jsonify({"error": "Monto de inversión inválido"}), 400
+        
+        if not cripto or not fecha or cripto not in CRIPTO_SIMBOLOS:
+            return jsonify({"error": "Parámetros incompletos o inválidos"}), 400
+
+        try:
+            fecha_inicial = datetime.strptime(fecha, "%Y-%m-%d").date()
+            fecha_final = datetime.utcnow().date()
+            
+            if fecha_inicial > fecha_final:
+                return jsonify({"error": "La fecha de compra no puede ser futura"}), 400
+                
+        except ValueError as e:
+            return jsonify({"error": f"Formato de fecha inválido: {str(e)}. Use YYYY-MM-DD"}), 400
+
+        # Obtener datos históricos con yfinance
+        data = yf.download(CRIPTO_SIMBOLOS[cripto], start=fecha_inicial, end=fecha_final + timedelta(days=1))
+        
+        if data.empty:
+            return jsonify({"error": "No hay datos disponibles para el período solicitado"}), 404
+        
+        # Procesamiento de datos
+        precio_compra = float(data['Close'].iloc[0])
+        precio_actual = float(data['Close'].iloc[-1])
+        cripto_compradas = inversion / precio_compra
+        valor_actual = cripto_compradas * precio_actual
+        rendimiento = ((valor_actual - inversion) / inversion) * 100
+        
+        historial = []
+        
+        for index, row in data.iterrows():
+            valor = float(row['Close']) * cripto_compradas
+            historial.append({
+                "fecha": index.strftime("%Y-%m-%d"),
+                "valor": valor
+            })
+        
+        return jsonify({
+            "rendimiento": {
+                "cripto": cripto,
+                "simbolo": CRIPTO_SIMBOLOS[cripto].split('-')[0],
+                "inversion": float(inversion),
+                "fecha_compra": fecha,
+                "valor_actual": float(valor_actual),
+                "rendimiento": float(rendimiento)
+            },
+            "historial": historial
+        })
+            
+    except Exception as e:
+        logger.error(f'Error inesperado: {str(e)}')
+        return jsonify({"error": f"Error interno del servidor: {str(e)}"}), 500
+
+@app.route('/analisis_cripto', methods=['POST'])
+@login_required
+def analisis_cripto():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Datos no proporcionados"}), 400
+            
+        cripto = data.get('cripto', '').strip().lower()
+        rendimiento = data.get('rendimiento', {})
+
+        if not cripto or not isinstance(rendimiento, dict):
+            return jsonify({"error": "Datos incompletos o inválidos"}), 400
+
+        # Validar y convertir a float
+        try:
+            inversion_val = float(rendimiento.get('inversion', 0) or 0)
+            valor_actual_val = float(rendimiento.get('valor_actual', 0) or 0)
+            rendimiento_val = float(rendimiento.get('rendimiento', 0) or 0)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Datos numéricos inválidos para el análisis"}), 400
+
+        pregunta = (
+            f"Analiza el rendimiento de {cripto.upper()} ({rendimiento.get('simbolo', '')}). "
+            f"La inversión inicial fue de ${inversion_val:.2f} y ahora vale ${valor_actual_val:.2f} "
+            f"(rendimiento del {rendimiento_val:.2f}%). "
+            "Proporciona un análisis conciso y recomendaciones basadas en este rendimiento."
+        )
+
+        # Configuración del cliente de DeepSeek
+        client = OpenAI(
+            api_key="sk-f96903a695404895a9cc563a7ee3c4c5",
+            base_url="https://api.deepseek.com"
+        )
+
+        # Llamada a la API
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Eres un analista de criptomonedas experto. Proporciona análisis concisos y recomendaciones prácticas basadas en datos."
+                },
+                {"role": "user", "content": pregunta}
+            ],
+            temperature=0.7,
+            max_tokens=500,
+            stream=False
+        )
+        
+        analisis = response.choices[0].message.content
+        return jsonify({"analisis": analisis})
+    
+    except Exception as e:
+        return jsonify({"error": f"Error al generar el análisis: {str(e)}"}), 500
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
