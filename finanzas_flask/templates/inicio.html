@@ -141,7 +141,67 @@
             color: var(--primary-color);
             margin-right: 8px;
         }
+        /* Filtros */
+        #yearSelect, #monthSelect {
+            margin-bottom: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 8px 12px;
+        }
 
+        /* Contenedor de transacciones */
+        #transactionsContainer {
+            transition: all 0.3s ease;
+        }
+
+        /* Botón Ver Más */
+        .btn-ver-mas {
+           background-color: #070262f5;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-ver-mas:hover {
+            background-color: #05014af5;
+            transform: translateY(-2px);
+        }
+        #pieChart, #barChart {
+            width: 100%;
+            height: 400px;
+        }
+
+        .graph-container {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.graph-container .card-header {
+    border-bottom: 1px solid #e0e0e0;
+    padding: 15px 20px;
+}
+
+/* Asegura que los gráficos se mantengan dentro de sus contenedores */
+#pieChart, #barChart {
+    min-height: 300px;
+}
+
+/* Estilo responsivo para columnas */
+@media (max-width: 767.98px) {
+    .col-md-5, .col-md-7 {
+        padding-right: 15px;
+        padding-left: 15px;
+    }
+}
+
+/* Elimina márgenes no deseados */
+.card-body.p-0 {
+    padding: 0 !important;
+}
     </style>
 </head>
 <body>
@@ -190,6 +250,7 @@
                     <div class="card-header">
                         <h4><i class="fas fa-exchange-alt transaction-icon"></i> Nueva Transacción</h4>
                     </div>
+
                     <div class="card-body">
                         <form method="post" action="{{ url_for('inicio') }}" id="transactionForm">
                             <div class="mb-3">
@@ -230,79 +291,113 @@
                 </div>
 
                         
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4><i class="fas fa-history transaction-icon"></i> Últimas Transacciones</h4>
-                    <div>
-                        <button class="btn btn-sm btn-outline-primary me-2" onclick="location.reload()">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
-
-                        <button class="btn btn-sm btn-custom" onclick="generarAnalisisFinanciero()">
-                            <i class="fas fa-robot"></i> Análisis IA
-                        </button>
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4><i class="fas fa-history transaction-icon"></i> Últimas Transacciones</h4>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="location.reload()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button class="btn btn-sm btn-custom" onclick="generarAnalisisFinanciero()">
+                                <i class="fas fa-robot"></i> Análisis IA
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div class="card-body">
-                    {% if transacciones %}
-                        <div class="list-group">
-                            {% for t in transacciones %}
-                            <div class="list-group-item transaction-card {{ t.type }}" id="transaction-{{ t.id }}">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <i class="fas {{ 'fa-arrow-down text-success' if t.type == 'ingreso' else 'fa-arrow-up text-danger' }} me-2"></i>
-                                        <strong>{{ t.category }}</strong>
-                                    </div>
-                                    <div class="d-flex align-items-center justify-content-center">
-                                        <span class="me-5">$ {{ "%.2f"|format(t.amount) }}</span>
-
-                                        
-                                        <button class="delete-btn" onclick="eliminarTransaccion({{ t.id }}, this)">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                 <small class="text-muted">
-                                    <i class="far fa-clock me-1"></i>
-                                        {{ t.date.strftime('%d/%m/%Y') }} - {{ t.type|capitalize }}
-                                        {% if t.date.date() != datetime.now().date() %}
-                                        {% endif %}
-                                </small>
+                    <div class="card-body">
+                    <!-- Filtros de año y mes -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <select class="form-select" id="yearSelect" onchange="actualizarFiltros()">
+                                    <option value="">Todos los años</option>
+                                    {% for year in years_available %}
+                                    <option value="{{ year }}" {% if request.args.get('year') == year %}selected{% endif %}>{{ year }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            {% endfor %}
+                            <div class="col-md-6">
+                                <select class="form-select" id="monthSelect" onchange="filtrarTransacciones()" {% if not request.args.get('year') %}disabled{% endif %}>
+                                    <option value="">Todos los meses</option>
+                                    {% for month in months_available %}
+                                    <option value="{{ month.value }}" {% if request.args.get('month') == month.value %}selected{% endif %}>{{ month.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
-                    {% else %}
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>No hay transacciones registradas
+
+                        <div id="transactionsContainer">
+                            {% if transacciones %}
+                                <div class="list-group">
+                                    {% for t in transacciones %}
+                                        <div class="list-group-item transaction-card {{ t.type }}" id="transaction-{{ t.id }}">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <i class="fas {{ 'fa-arrow-down text-success' if t.type == 'ingreso' else 'fa-arrow-up text-danger' }} me-2"></i>
+                                                    <strong>{{ t.category }}</strong>
+                                                </div>
+                                                <div class="d-flex align-items-center justify-content-center">
+                                                    <span class="me-5">$ {{ "%.2f"|format(t.amount) }}</span>
+                                                    <button class="delete-btn" onclick="eliminarTransaccion({{ t.id }}, this)">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">
+                                                <i class="far fa-clock me-1"></i>
+                                            {{ t.date.strftime('%d/%m/%Y') }} - {{ t.type|capitalize }}
+                                            </small>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                
+                                <!-- Botón "Ver más" solo si hay más de 5 transacciones -->
+                                {% if transacciones|length > 5 %}
+                                    <button class="btn btn-custom mt-3 w-100" onclick="mostrarTodasTransacciones()">
+                                        <i class="fas fa-eye"></i> Ver más transacciones
+                                    </button>
+                                {% endif %}
+                                {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>No hay transacciones registradas
+                                </div>
+                            {% endif %}
                         </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-7">
-            <div class="graph-container">
-                <h4><i class="fas fa-chart-pie me-2 transaction-icon"></i>Resumen Financiero</h4>
-                {{ pie_div|safe }}
-            </div>
-
-            <div class="graph-container">
-                <h4><i class="fas fa-chart-bar me-2 transaction-icon"></i>Análisis por Categoría</h4>
-                {{ bar_div|safe }}
-            </div>
-
-            <!-- Nueva sección para el análisis IA -->
-            <div class="graph-container" id="iaAnalysisContainer" style="display: none;">
-                <h4><i class="fas fa-robot me-2 transaction-icon"></i>Análisis Financiero con IA</h4>
-                <div id="iaAnalysisContent">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i> Haz clic en "Análisis IA" para obtener recomendaciones
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
+
+
+                <div class="col-md-7">
+                    <!-- Gráfico de Resumen Financiero -->
+                    <div class="card graph-container mb-7">
+                        <div class="card-header bg-white">
+                            <h4 class="m-0"><i class="fas fa-chart-pie me-3 transaction-icon"></i>Resumen Financiero</h4>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="pieChart" style="width:100%; height:300px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de Análisis por Categoría -->
+                    <div class="card graph-container mb-7">
+                        <div class="card-header bg-white">
+                            <h4 class="m-0"><i class="fas fa-chart-bar me-3 transaction-icon"></i>Análisis por Categoría</h4>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="barChart" style="width:100%; height:300px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Análisis IA (opcional) -->
+                    <div class="graph-container" id="iaAnalysisContainer" style="display: none;">
+                        <h4><i class="fas fa-robot me-2 transaction-icon"></i>Análisis Financiero con IA</h4>
+                        <div id="iaAnalysisContent">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> Haz clic en "Análisis IA" para obtener recomendaciones
+                            </div>
+                        </div>
+                </div>
+                </div>
+            </div>
 
 
 
@@ -311,6 +406,9 @@
 <script>
     // Inicializar al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
+        const year = document.getElementById('yearSelect').value;
+        const month = document.getElementById('monthSelect').value;
+        actualizarGraficos(year, month);
 
         // Configurar fecha máxima (hoy)
         document.getElementById('transactionDate').max = new Date().toISOString().split('T')[0];
@@ -519,17 +617,18 @@
         }
     }
 
-    // Función para generar análisis IA
     async function generarAnalisisFinanciero() {
+        const year = document.getElementById('yearSelect').value;
+        const month = document.getElementById('monthSelect').value;
         const iaContainer = document.getElementById('iaAnalysisContainer');
         const iaContent = document.getElementById('iaAnalysisContent');
-        
+    
         iaContainer.style.display = 'block';
         iaContent.innerHTML = `
             <div class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
+                <span class="visually-hidden">Cargando...</span>
+            </div>
                 <p class="mt-2">Generando análisis financiero...</p>
             </div>`;
 
@@ -538,7 +637,11 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                }
+                },
+                body: JSON.stringify({
+                    year: year,
+                    month: month
+                })
             });
 
             const data = await response.json();
@@ -550,11 +653,12 @@
                     <h6>Análisis Financiero Personalizado</h6>
                     <div class="mb-2">
                         <small class="text-muted">${new Date().toLocaleString()}</small>
+                        ${year && month ? `<small class="text-muted d-block">Período: ${months_available.find(m => m.value === month)?.name} ${year}</small>` : ''}
                     </div>
                     <p>${data.analisis.replace(/\n/g, '<br>')}</p>
                     <small class="text-muted">Análisis generado por IA</small>
                 </div>`;
-            
+                
         } catch (error) {
             console.error('Error al obtener análisis IA:', error);
             iaContent.innerHTML = `
@@ -565,7 +669,189 @@
         }
     }
 
+    // Función para actualizar los filtros
+    function actualizarFiltros() {
+        const year = document.getElementById('yearSelect').value;
+        const monthSelect = document.getElementById('monthSelect');
 
+        // Habilitar/deshabilitar selector de mes
+        monthSelect.disabled = !year;
+    
+        // Si no hay año seleccionado, limpiar mes
+        if (!year) {
+            monthSelect.value = '';
+        }
+    
+        // Filtrar transacciones
+        filtrarTransacciones();
+    }
+
+    // Función para filtrar transacciones por año/mes
+    async function filtrarTransacciones() {
+        const year = document.getElementById('yearSelect').value;
+        const month = document.getElementById('monthSelect').value;
+    
+        try {
+            const response = await fetch(`/obtener_transacciones_filtradas?year=${year}&month=${month}`);
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            actualizarListaTransacciones(data.transacciones);
+        } catch (error) {
+            console.error('Error al filtrar transacciones:', error);
+            alert('Error al filtrar transacciones: ' + error.message);
+        }
+    }
+
+
+    // Función para actualizar la lista de transacciones
+    function actualizarListaTransacciones(transacciones) {
+        const container = document.getElementById('transactionsContainer');
+
+    if (transacciones.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>No hay transacciones para este período
+                </div>`;
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+            
+        // Mostrar solo las 5 más recientes inicialmente
+        const mostrarTodas = container.dataset.mostrarTodas === 'true';
+        const transaccionesAMostrar = mostrarTodas ? transacciones : transacciones.slice(0, 5);
+            
+        transaccionesAMostrar.forEach(t => {
+            const fecha = new Date(t.date);
+            const fechaFormateada = fecha.toLocaleDateString('es-ES');
+            
+            html += `
+            <div class="list-group-item transaction-card ${t.type}" id="transaction-${t.id}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas ${t.type === 'ingreso' ? 'fa-arrow-down text-success' : 'fa-arrow-up text-danger'} me-2"></i>
+                        <strong>${t.category}</strong>
+                        ${t.description ? `<small class="text-muted ms-2">${t.description}</small>` : ''}
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center">
+                        <span class="me-5">$ ${t.amount.toFixed(2)}</span>
+                        <button class="delete-btn" onclick="eliminarTransaccion(${t.id}, this)">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    <i class="far fa-clock me-1"></i>
+                    ${fechaFormateada} - ${t.type.charAt(0).toUpperCase() + t.type.slice(1)}
+                </small>
+            </div>`;
+        });
+        
+        html += '</div>';
+    
+        // Agregar botón "Ver más" si hay más de 5 transacciones y no estamos mostrando todas
+        if (transacciones.length > 5 && !mostrarTodas) {
+            html += `
+            <button class="btn btn-custom mt-3 w-100" onclick="mostrarTodasTransacciones()">
+                <i class="fas fa-eye"></i> Ver más transacciones
+            </button>`;
+        }
+    
+        container.innerHTML = html;
+        container.dataset.mostrarTodas = mostrarTodas;
+    }
+
+    // Función para mostrar todas las transacciones
+    function mostrarTodasTransacciones() {
+        const container = document.getElementById('transactionsContainer');
+        container.dataset.mostrarTodas = 'true';
+        filtrarTransacciones(); // Vuelve a cargar pero mostrando todas
+    }
+
+    // Función para actualizar los gráficos
+async function actualizarGraficos(year, month) {
+    try {
+        const response = await fetch(`/obtener_graficos_filtrados?year=${year}&month=${month}`);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        // Actualizar gráfico de pastel
+        if (data.pie_data) {
+            const pie = {
+                values: data.pie_data.values,
+                labels: data.pie_data.labels,
+                type: 'pie',
+                marker: {
+                    colors: data.pie_data.colors
+                }
+            };
+            
+            Plotly.newPlot('pieChart', [pie], {
+                title: 'Distribución de Ingresos y Gastos'
+            });
+        }
+        
+        // Actualizar gráfico de barras
+        if (data.bar_data) {
+            const ingresos = {
+                x: data.bar_data.categorias,
+                y: data.bar_data.ingresos,
+                name: 'Ingresos',
+                type: 'bar',
+                marker: {
+                    color: '#28a745'
+                }
+            };
+            
+            const gastos = {
+                x: data.bar_data.categorias,
+                y: data.bar_data.gastos,
+                name: 'Gastos',
+                type: 'bar',
+                marker: {
+                    color: '#dc3545'
+                }
+            };
+            
+            Plotly.newPlot('barChart', [ingresos, gastos], {
+                title: 'Balance por Categoría',
+                xaxis: {title: 'Categoría'},
+                yaxis: {title: 'Monto'},
+                barmode: 'group'
+            });
+        }
+    } catch (error) {
+        console.error('Error al actualizar gráficos:', error);
+    }
+}
+
+    // Modifica la función filtrarTransacciones para que también actualice los gráficos
+    async function filtrarTransacciones() {
+        const year = document.getElementById('yearSelect').value;
+        const month = document.getElementById('monthSelect').value;
+    
+        try {
+            // Actualizar transacciones
+            const transResponse = await fetch(`/obtener_transacciones_filtradas?year=${year}&month=${month}`);
+            const transData = await transResponse.json();
+        
+            if (transData.error) throw new Error(transData.error);
+        
+            actualizarListaTransacciones(transData.transacciones);
+        
+            // Actualizar gráficos
+            await actualizarGraficos(year, month);
+        
+        } catch (error) {
+            console.error('Error al filtrar:', error);
+            alert('Error al filtrar: ' + error.message);
+        }
+    }
+
+    
 </script>
 </body>
 </html>

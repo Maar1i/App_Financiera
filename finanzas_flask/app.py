@@ -893,6 +893,44 @@ def inicio():
             app.logger.error(f'Error añadiendo transacción: {str(e)}')
             flash('Ocurrió un error al registrar la transacción.', 'danger')
 
+     # Obtener parámetros de filtro si existen
+    year = request.args.get('year')
+    month = request.args.get('month')
+    
+    # Consulta base
+    query = Transaction.query.filter_by(user_id=current_user.id)
+    
+    # Aplicar filtros si existen
+    if year:
+        query = query.filter(db.extract('year', Transaction.date) == year)
+        if month:
+            query = query.filter(db.extract('month', Transaction.date) == month)
+    
+    # Obtener transacciones ordenadas
+    transacciones = query.order_by(Transaction.date.desc()).all()
+    
+    # Obtener años disponibles para el filtro
+    years_available = db.session.query(
+        db.extract('year', Transaction.date).label('year')
+    ).filter_by(user_id=current_user.id).distinct().order_by('year').all()
+    years_available = [str(int(y[0])) for y in years_available] if years_available else []
+    
+    # Meses disponibles para el filtro
+    months_available = [
+        {'value': '1', 'name': 'Enero'},
+        {'value': '2', 'name': 'Febrero'},
+        {'value': '3', 'name': 'Marzo'},
+        {'value': '4', 'name': 'Abril'},
+        {'value': '5', 'name': 'Mayo'},
+        {'value': '6', 'name': 'Junio'},
+        {'value': '7', 'name': 'Julio'},
+        {'value': '8', 'name': 'Agosto'},
+        {'value': '9', 'name': 'Septiembre'},
+        {'value': '10', 'name': 'Octubre'},
+        {'value': '11', 'name': 'Noviembre'},
+        {'value': '12', 'name': 'Diciembre'}
+    ]
+
     # Obtener transacciones del usuario
     transacciones = Transaction.query.filter_by(user_id=current_user.id)\
                                      .order_by(Transaction.date.desc()).all()
@@ -903,44 +941,49 @@ def inicio():
     balance = ingresos - gastos
 
     # Gráfico de pastel
-    pie = go.Figure(data=[go.Pie(
-        labels=['Ingresos', 'Gastos'], 
-        values=[ingresos, gastos],
-        marker_colors=['#28a745', '#dc3545']
-    )])
-    pie.update_layout(title_text='Distribución de Ingresos y Gastos')
-    pie_div = plot(pie, output_type='div')
+    pie_div = ""
+    if ingresos > 0 or gastos > 0:
+        pie = go.Figure(data=[go.Pie(
+            labels=['Ingresos', 'Gastos'], 
+            values=[ingresos, gastos],
+            marker_colors=['#28a745', '#dc3545']
+        )])
+        pie.update_layout(title_text='Distribución de Ingresos y Gastos')
+        pie_div = plot(pie, output_type='div')
 
-    # Gráfico de barras por categoría
+    # Gráfico de barras por categoría (solo si hay datos)
+    bar_div = ""
     categorias = {}
     for t in transacciones:
-        if t.category not in categorias:
-            categorias[t.category] = {'ingresos': 0, 'gastos': 0}
-        if t.type == 'ingreso':
-            categorias[t.category]['ingresos'] += t.amount
-        else:
-            categorias[t.category]['gastos'] += t.amount
+            if t.category not in categorias:
+                categorias[t.category] = {'ingresos': 0, 'gastos': 0}
+            if t.type == 'ingreso':
+                categorias[t.category]['ingresos'] += t.amount
+            else:
+                categorias[t.category]['gastos'] += t.amount
 
-    bar = go.Figure()
-    bar.add_trace(go.Bar(
-        x=list(categorias.keys()),
-        y=[v['ingresos'] for v in categorias.values()],
-        name='Ingresos',
-        marker_color='#28a745'
-    ))
-    bar.add_trace(go.Bar(
-        x=list(categorias.keys()),
-        y=[v['gastos'] for v in categorias.values()],
-        name='Gastos',
-        marker_color='#dc3545'
-    ))
-    bar.update_layout(
-        title_text='Balance por Categoría',
-        xaxis_title='Categoría',
-        yaxis_title='Monto',
-        barmode='group'
-    )
-    bar_div = plot(bar, output_type='div')
+    if categorias:
+        bar = go.Figure()
+        bar.add_trace(go.Bar(
+            x=list(categorias.keys()),
+            y=[v['ingresos'] for v in categorias.values()],
+            name='Ingresos',
+            marker_color='#28a745'
+        ))
+        bar.add_trace(go.Bar(
+            x=list(categorias.keys()),
+            y=[v['gastos'] for v in categorias.values()],
+            name='Gastos',
+            marker_color='#dc3545'
+        ))
+        bar.update_layout(
+            title_text='Balance por Categoría',
+            xaxis_title='Categoría',
+            yaxis_title='Monto',
+            barmode='group'
+        )
+        bar_div = plot(bar, output_type='div')
+
 
     # Categorías disponibles para el formulario
     categorias_disponibles = {
@@ -962,6 +1005,8 @@ def inicio():
     return render_template(
         'inicio.html',
         transacciones=transacciones,
+        years_available=years_available,
+        months_available=months_available,
         ingresos=ingresos,
         gastos=gastos,
         balance=balance,
@@ -973,6 +1018,53 @@ def inicio():
 
 
 # ----------------------------------------------Rutas se  transacciones ---------------------------------------------------------------
+@app.route('/obtener_graficos_filtrados')
+@login_required
+def obtener_graficos_filtrados():
+    year = request.args.get('year')
+    month = request.args.get('month')
+    
+    query = Transaction.query.filter_by(user_id=current_user.id)
+    
+    if year:
+        query = query.filter(db.extract('year', Transaction.date) == year)
+        if month:
+            query = query.filter(db.extract('month', Transaction.date) == month)
+    
+    transacciones = query.order_by(Transaction.date.desc()).all()
+    
+    # Calcular totales
+    ingresos = sum(t.amount for t in transacciones if t.type == 'ingreso')
+    gastos = sum(t.amount for t in transacciones if t.type == 'gasto')
+    
+    # Datos para gráfico de pastel
+    pie_data = {
+        'labels': ['Ingresos', 'Gastos'],
+        'values': [ingresos, gastos],
+        'colors': ['#28a745', '#dc3545']
+    }
+    
+    # Datos para gráfico de barras por categoría
+    categorias = {}
+    for t in transacciones:
+        if t.category not in categorias:
+            categorias[t.category] = {'ingresos': 0, 'gastos': 0}
+        if t.type == 'ingreso':
+            categorias[t.category]['ingresos'] += t.amount
+        else:
+            categorias[t.category]['gastos'] += t.amount
+    
+    bar_data = {
+        'categorias': list(categorias.keys()),
+        'ingresos': [v['ingresos'] for v in categorias.values()],
+        'gastos': [v['gastos'] for v in categorias.values()]
+    }
+    
+    return jsonify({
+        'pie_data': pie_data,
+        'bar_data': bar_data
+    })
+
 @app.route('/eliminar_transaccion/<int:id>', methods=['DELETE'])
 @login_required
 def eliminar_transaccion(id):
@@ -1038,6 +1130,35 @@ def analisis_transacciones():
     
     except Exception as e:
         return jsonify({"error": f"Error al generar el análisis: {str(e)}"}), 500
+    
+@app.route('/obtener_transacciones_filtradas')
+@login_required
+def obtener_transacciones_filtradas():
+    year = request.args.get('year')
+    month = request.args.get('month')
+    
+    query = Transaction.query.filter_by(user_id=current_user.id)
+    
+    if year:
+        query = query.filter(db.extract('year', Transaction.date) == year)
+        if month:
+            query = query.filter(db.extract('month', Transaction.date) == month)
+    
+    transacciones = query.order_by(Transaction.date.desc()).all()
+    
+    # Convertir a formato JSON
+    transacciones_json = [{
+        'id': t.id,
+        'type': t.type,
+        'category': t.category,
+        'amount': float(t.amount),
+        'date': t.date.isoformat(),
+        'description': t.description or ''
+    } for t in transacciones]
+    
+    return jsonify({
+        'transacciones': transacciones_json
+    })
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Funciones de utilidad
