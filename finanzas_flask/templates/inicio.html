@@ -19,29 +19,39 @@
             border: none;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        .blue-stripe {
-            background-color: #070262f5;
-            color: white;
-            padding: 15px 0;
-            margin-bottom: 20px;
+        .blue-stripe { 
+        background: linear-gradient(135deg, #070262f5, #05014af5);
+        color: white; 
+        padding: 15px 0; 
+        margin-bottom: 20px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .menu-item {
-            color: white;
-            margin: 0 15px;
-            text-decoration: none;
-            font-weight: 500;
+        .menu-item { 
+        color: white; 
+        margin: 0 15px; 
+        text-decoration: none; 
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
         }
-
+    
         .menu-item2 {
             color: #B0C4DE;
             margin: 0 15px;
-            text-decoration: none;
+           text-decoration: none;
             font-weight: 500;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+        }
+    
+        .menu-item:hover { 
+            color: white;
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
 
-        }
-        .menu-item:hover {
-            color: #cfe2ff;
-        }
         .transaction-card {
             border-left: 4px solid;
             margin-bottom: 10px;
@@ -109,6 +119,29 @@
             color: white;
         }
 
+        .input-icon {
+            margin-right: 8px;
+            color: #6c757d;
+        }
+
+        .delete-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #dc3545;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            color: #a71d2a;
+        }
+        .icon-primary {
+            color: var(--primary-color);
+            margin-right: 8px;
+        }
+
     </style>
 </head>
 <body>
@@ -141,9 +174,9 @@
     <div class="blue-stripe">
         <div class="container d-flex justify-content-center">
             <a href="{{ url_for('inicio') }}" class="menu-item2"><i class="fas fa-home menu-icon"></i> Inicio</a>
-            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
-            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
-            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item"><i class="menu-icon"></i>Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item"><i class="menu-icon"></i>Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item"><i class="menu-icon"></i>Consulta Financciera</a>
 
         </div>
     </div>
@@ -152,6 +185,7 @@
     <div class="container my-4">
         <div class="row">
             <div class="col-md-5">
+
                 <div class="card mb-4">
                     <div class="card-header">
                         <h4><i class="fas fa-exchange-alt transaction-icon"></i> Nueva Transacción</h4>
@@ -159,7 +193,7 @@
                     <div class="card-body">
                         <form method="post" action="{{ url_for('inicio') }}" id="transactionForm">
                             <div class="mb-3">
-                                <label class="form-label"><i class="fas fa-filter category-icon"></i> Tipo de transacción:</label>
+                                <label class="form-label"><i class="fas fa-filter category-icon input-icon"></i> Tipo de transacción:</label>
                                 <select class="form-select" name="type" id="transactionType" required>
                                     <option value="" disabled {% if not request.form.get('type') %}selected{% endif %}>Seleccione tipo</option>
                                     <option value="ingreso" {% if request.form.get('type') == 'ingreso' %}selected{% endif %}>Ingreso</option>
@@ -168,17 +202,26 @@
                             </div>
 
                             <div class="mb-3">
-                               <label class="form-label"><i class="fas fa-tags category-icon"></i> Categoría:</label>
-                               <select class="form-select" name="category" id="categorySelect" required>
-                                   <option value="" disabled selected>Seleccione una categoría</option>
+                                <label class="form-label"><i class="fas fa-tags category-icon input-icon"></i> Categoría:</label>
+                                <select class="form-select" name="category" id="categorySelect" required>
+                                    <option value="" disabled selected>Seleccione una categoría</option>
                                 </select>
                             </div>
-                            
+            
                             <div class="mb-3">
-                                <label class="form-label"><i class="fas fa-dollar-sign category-icon"></i> Monto:</label>
+                            <label class="form-label"><i class="far fa-calendar-alt category-icon input-icon"></i> Fecha:</label>
+                            <input type="date" class="form-control" name="transaction_date" id="transactionDate" required 
+                                max="{{ datetime.now().strftime('%Y-%m-%d') }}"
+                                value="{{ request.form.get('transaction_date', datetime.now().strftime('%Y-%m-%d')) }}">
+                            </div>
+
+
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-dollar-sign category-icon input-icon"></i> Monto:</label>
                                 <input type="number" step="0.01" class="form-control" name="amount" placeholder="Monto" required>
                             </div>
-        
+
+    
                             <button type="submit" class="btn btn-custom w-100">
                                 <i class="fas fa-plus-circle"></i> Agregar Transacción
                             </button>
@@ -194,6 +237,7 @@
                         <button class="btn btn-sm btn-outline-primary me-2" onclick="location.reload()">
                             <i class="fas fa-sync-alt"></i>
                         </button>
+
                         <button class="btn btn-sm btn-custom" onclick="generarAnalisisFinanciero()">
                             <i class="fas fa-robot"></i> Análisis IA
                         </button>
@@ -209,16 +253,20 @@
                                         <i class="fas {{ 'fa-arrow-down text-success' if t.type == 'ingreso' else 'fa-arrow-up text-danger' }} me-2"></i>
                                         <strong>{{ t.category }}</strong>
                                     </div>
-                                    <div class="d-flex align-items-center">
-                                        <span class="me-2">${{ "%.2f"|format(t.amount) }}</span>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarTransaccion({{ t.id }}, this)">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <span class="me-5">$ {{ "%.2f"|format(t.amount) }}</span>
+
+                                        
+                                        <button class="delete-btn" onclick="eliminarTransaccion({{ t.id }}, this)">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </div>
                                 </div>
-                                <small class="text-muted">
+                                 <small class="text-muted">
                                     <i class="far fa-clock me-1"></i>
-                                    {{ t.date.strftime('%d/%m/%Y %H:%M') }} - {{ t.type|capitalize }}
+                                        {{ t.date.strftime('%d/%m/%Y') }} - {{ t.type|capitalize }}
+                                        {% if t.date.date() != datetime.now().date() %}
+                                        {% endif %}
                                 </small>
                             </div>
                             {% endfor %}
@@ -263,6 +311,10 @@
 <script>
     // Inicializar al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
+
+        // Configurar fecha máxima (hoy)
+        document.getElementById('transactionDate').max = new Date().toISOString().split('T')[0];
+        
         // Configurar el evento change para el tipo de transacción
         document.getElementById('transactionType').addEventListener('change', updateCategories);
         

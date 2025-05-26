@@ -844,14 +844,58 @@ def asistente():
             'details': str(e)
         }), 500
     
-
+#------------------------------ Ruta de inicio ----------------------------------------
 @app.route('/inicio', methods=['GET', 'POST'])
 @login_required
 def inicio():
-    # Obtener transacciones del usuario (para GET y POST)
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            tipo = request.form.get('type')
+            categoria = request.form.get('category')
+            monto = float(request.form.get('amount', 0))
+            descripcion = request.form.get('description', '').strip()
+            fecha_str = request.form.get('transaction_date')
+
+            # Validar campos
+            if not tipo or not categoria or monto <= 0:
+                flash('Por favor completa todos los campos correctamente.')
+                return redirect(url_for('inicio'))
+
+            # Validar fecha
+            try:
+                fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
+                if fecha > datetime.now():
+                    flash('La fecha no puede ser futura', 'danger')
+                    return redirect(url_for('inicio'))
+            except ValueError:
+                flash('Formato de fecha inválido', 'danger')
+                return redirect(url_for('inicio'))
+
+            # Crear nueva transacción
+            nueva_transaccion = Transaction(
+                user_id=current_user.id,
+                type=tipo,
+                category=categoria,
+                amount=monto,
+                date=fecha,
+                description=descripcion
+            )
+            db.session.add(nueva_transaccion)
+            db.session.commit()
+            flash('Transacción registrada exitosamente!', 'success')
+            return redirect(url_for('inicio'))
+
+        except ValueError:
+            flash('El monto debe ser un número válido.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error añadiendo transacción: {str(e)}')
+            flash('Ocurrió un error al registrar la transacción.', 'danger')
+
+    # Obtener transacciones del usuario
     transacciones = Transaction.query.filter_by(user_id=current_user.id)\
-                                   .order_by(Transaction.date.desc())\
-                                   .all()
+                                     .order_by(Transaction.date.desc()).all()
 
     # Calcular totales
     ingresos = sum(t.amount for t in transacciones if t.type == 'ingreso')
@@ -898,39 +942,22 @@ def inicio():
     )
     bar_div = plot(bar, output_type='div')
 
-    # Manejo de solicitudes POST (añadir nuevas transacciones)
-    if request.method == 'POST':
-        try:
-            tipo = request.form.get('type')
-            categoria = request.form.get('category')
-            monto = float(request.form.get('amount', 0))
-            descripcion = request.form.get('description', '').strip()
-
-            if not tipo or not categoria or monto <= 0:
-                flash('Por favor completa todos los campos correctamente.')
-                return redirect(url_for('inicio'))
-
-            nueva_transaccion = Transaction(
-                user_id=current_user.id,
-                type=tipo,
-                category=categoria,
-                amount=monto,
-                description=descripcion
-            )
-            
-            db.session.add(nueva_transaccion)
-            db.session.commit()
-            flash('Transacción registrada exitosamente!')
-            
-            # Actualizar los datos después de añadir nueva transacción
-            return redirect(url_for('inicio'))
-
-        except ValueError:
-            flash('El monto debe ser un número válido.')
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f'Error añadiendo transacción: {str(e)}')
-            flash('Ocurrió un error al registrar la transacción.')
+    # Categorías disponibles para el formulario
+    categorias_disponibles = {
+        'ingreso': [
+            {'label': "Ingresos Laborales", 'options': ["Salario", "Freelance", "Comisiones", "Bonos", "Propinas"]},
+            {'label': "Ingresos Pasivos", 'options': ["Inversiones", "Dividendos", "Intereses", "Alquiler", "Pensión"]},
+            {'label': "Otros Ingresos", 'options': ["Subsidio", "Beca", "Ventas", "Herencia", "Premios"]}
+        ],
+        'gasto': [
+            {'label': "Vivienda", 'options': ["Renta", "Servicios", "Internet", "Mantenimiento"]},
+            {'label': "Alimentación", 'options': ["Supermercado", "Restaurantes"]},
+            {'label': "Transporte", 'options': ["Gasolina", "Transporte", "Auto", "Seguro de auto"]},
+            {'label': "Personales", 'options': ["Ropa", "Personal", "Salud", "Ocio", "Educacion"]},
+            {'label': "Finanzas", 'options': ["Deudas", "Impuestos", "Donaciones"]},
+            {'label': "Otros", 'options': ["Suscripciones", "Mascotas", "Regalos", "Viajes", "Tecnologia", "Ahorro", "Emergencias", "Honorarios"]}
+        ]
+    }
 
     return render_template(
         'inicio.html',
@@ -939,8 +966,11 @@ def inicio():
         gastos=gastos,
         balance=balance,
         pie_div=pie_div,
-        bar_div=bar_div
+        bar_div=bar_div,
+        categorias=categorias_disponibles,
+        datetime=datetime
     )
+
 
 # ----------------------------------------------Rutas se  transacciones ---------------------------------------------------------------
 @app.route('/eliminar_transaccion/<int:id>', methods=['DELETE'])

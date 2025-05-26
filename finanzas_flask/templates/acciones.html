@@ -9,16 +9,39 @@
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         .navbar { background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .blue-stripe { background-color: #070262f5; color: white; padding: 15px 0; margin-bottom: 20px; }
-        .menu-item { color: white; margin: 0 15px; text-decoration: none; font-weight: 500; }
-
-        .menu-item2 {
-            color: #B0C4DE;
-            margin: 0 15px;
-            text-decoration: none;
-            font-weight: 500;
+        
+        .blue-stripe { 
+        background: linear-gradient(135deg, #070262f5, #05014af5);
+        color: white; 
+        padding: 15px 0; 
+        margin-bottom: 20px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .menu-item:hover { color: #cfe2ff; }
+
+        .menu-item { 
+        color: white; 
+        margin: 0 15px; 
+        text-decoration: none; 
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        }
+        .menu-item2 {
+        color: #B0C4DE;
+        margin: 0 15px;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.1);
+    }
+        .menu-item:hover { 
+        color: white;
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-2px);
+        }
+        
         .graph-container { 
             background: white; 
             border-radius: 8px; 
@@ -95,14 +118,8 @@
             width: 100%;
             position: relative;
         }
-        .positive-return {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .negative-return {
-            color: #dc3545;
-            font-weight: bold;
-        }
+        
+        
         .table-summary th {
             background-color: #070262f5;
             color: white;
@@ -141,6 +158,12 @@
             width: 20px;
             color: #070262f5;
         }
+        .icon-primary {
+            color: var(--primary-color);
+            margin-right: 8px;
+        }
+
+
         
     </style>
 </head>
@@ -172,10 +195,10 @@
 
     <div class="blue-stripe">
         <div class="container d-flex justify-content-center">
-            <a href="{{ url_for('inicio') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('inicio') }}" class="menu-item"><i class="menu-icon"></i>Inicio</a>
             <a href="{{ url_for('acciones') }}" class="menu-item2"><i class="fas fa-chart-line menu-icon"></i> Acciones</a>
-            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
-            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item"><i class="menu-icon"></i>Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item"><i class="menu-icon"></i>Consulta Financciera</a>
 
         </div>
     </div>
@@ -267,8 +290,8 @@
                                             <strong>{{ stockNames[t.accion].name }}</strong>
                                             <span class="badge bg-secondary stock-badge">{{ t.accion }}</span>
                                         </div>
-                                        <span class="text-primary">
-                                            <i class="fas fa-dollar-sign"></i> {{ "%.2f"|format(t.precio * t.cantidad) }}
+                                        <span class="d-flex align-items-center">
+                                            <i class="me-5"></i> $ {{ "%.2f"|format(t.precio * t.cantidad) }}
                                         </span>
                                     </div>
                                     <small class="text-muted">

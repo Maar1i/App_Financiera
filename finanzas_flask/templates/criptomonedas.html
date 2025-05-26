@@ -1,147 +1,181 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Criptomonedas - App Financiera</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <style>
-        .navbar { background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .blue-stripe { background-color: #070262f5; color: white; padding: 15px 0; margin-bottom: 20px; }
-        .menu-item { color: white; margin: 0 15px; text-decoration: none; font-weight: 500; }
-        .menu-item2 {
-            color: #B0C4DE;
-            margin: 0 15px;
-            text-decoration: none;
-            font-weight: 500;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Criptomonedas - App Financiera</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<style>
+    .navbar { background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    
+    .blue-stripe { 
+        background: linear-gradient(135deg, #070262f5, #05014af5);
+        color: white; 
+        padding: 15px 0; 
+        margin-bottom: 20px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .menu-item { 
+        color: white; 
+        margin: 0 15px; 
+        text-decoration: none; 
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+    
+    .menu-item2 {
+        color: #B0C4DE;
+        margin: 0 15px;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .menu-item:hover { 
+        color: white;
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-2px);
+    }
+    
+    .graph-container { 
+        background: white; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        padding: 20px; 
+        margin-bottom: 15px;
+        height: 500px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    /* Resto de tus estilos... */
+    .summary-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 15px;
+    }
 
-        }
-        .menu-item:hover { color: #cfe2ff; }
-        .graph-container { 
-            background: white; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-            padding: 20px; 
-            margin-bottom: 15px;
-            height: 500px;
-            overflow: hidden;
-            position: relative;
-        }
-        .summary-container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-bottom: 15px;
-        }
-        .ia-analysis-container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-bottom: 30px;
-        }
-        .btn-action { background-color: #070262f5; border-color: #070262f5; color: white; }
-        .btn-action:hover { background-color: #05014af5; border-color: #05014af5; color: white; }
-        .operation-success { 
-            background-color: #d4edda; 
-            border-left: 5px solid #28a745;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            display: none;
-        }
-        .transaction-btn {
-            display: block;
-            width: 100%;
-            text-align: left;
-            border: none;
-            background: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            transition: background-color 0.2s;
-        }
-        .transaction-btn:hover {
-            background-color: #f8f9fa;
-        }
-        .transaction-btn.active {
-            background-color: #e9ecef;
-            border-left: 3px solid #070262f5;
-        }
-        .transaction-item {
-            position: relative;
-            padding-right: 40px;
-            margin-bottom: 8px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-        }
-        .delete-btn {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #dc3545;
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-        .delete-btn:hover {
-            color: #a71d2a;
-        }
-        #cryptoChart {
-            height: 450px;
-            width: 100%;
-            position: relative;
-        }
-        .positive-return {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .negative-return {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .table-summary th {
-            background-color: #070262f5;
-            color: white;
-        }
-        .ia-analysis-content {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            border-left: 4px solid #070262f5;
-            margin-top: 15px;
-        }
-        .ia-loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .crypto-badge {
-            font-size: 0.8rem;
-            margin-left: 5px;
-        }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
-        .input-icon {
-            margin-right: 8px;
-            color: #6c757d;
-        }
-        .crypto-icon {
-            margin-right: 8px;
-            width: 20px;
-            color: #070262f5;
-        }
-        .alert-icon {
-            margin-right: 8px;
-        }
-        .menu-icon {
-            margin-right: 6px;
-        }
+    .ia-analysis-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    .btn-action { background-color: #070262f5; border-color: #070262f5; color: white; }
+    .btn-action:hover { background-color: #05014af5; border-color: #05014af5; color: white; }
+    .operation-success { 
+        background-color: #d4edda; 
+        border-left: 5px solid #28a745;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        display: none;
+    }
+    .transaction-btn {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: none;
+        background: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    .transaction-btn:hover {
+        background-color: #f8f9fa;
+    }
+    .transaction-btn.active {
+        background-color: #e9ecef;
+        border-left: 3px solid #070262f5;
+    }
+    .transaction-item {
+        position: relative;
+        padding-right: 40px;
+        margin-bottom: 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    .delete-btn {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #dc3545;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .delete-btn:hover {
+        color: #a71d2a;
+    }
+    #cryptoChart {
+        height: 450px;
+        width: 100%;
+        position: relative;
+    }
+    .positive-return {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .negative-return {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .table-summary th {
+        background-color: #070262f5;
+        color: white;
+    }
+    .icon-primary {
+        color: var(--primary-color);
+        margin-right: 8px;
+    }
 
-    </style>
+    .ia-analysis-content {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #070262f5;
+        margin-top: 15px;
+    }
+    .ia-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .crypto-badge {
+        font-size: 0.8rem;
+        margin-left: 5px;
+    }
+
+    .input-icon {
+        margin-right: 8px;
+        color: #6c757d;
+    }
+    .crypto-icon {
+        margin-right: 8px;
+        width: 20px;
+        color: #070262f5;
+    }
+    .alert-icon {
+        margin-right: 8px;
+    }
+    .menu-icon {
+        margin-right: 6px;
+    }
+</style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light">
@@ -168,13 +202,13 @@
         </div>
     </nav>
 
-
+    <!-- Franja azul con pestañas animadas -->
     <div class="blue-stripe">
         <div class="container d-flex justify-content-center">
-            <a href="{{ url_for('inicio') }}" class="menu-item">Inicio</a>
-            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('inicio') }}" class="menu-item"><i class="menu-icon"></i> Inicio</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item"><i class=" menu-icon"></i> Acciones</a>
             <a href="{{ url_for('criptomonedas') }}" class="menu-item2"><i class="fab fa-bitcoin menu-icon"></i> Criptomonedas</a>
-            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financiera</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item"><i class="menu-icon"></i> Consulta Financiera</a>
         </div>
     </div>
 
@@ -266,14 +300,15 @@
                                             <strong>{{ t.cripto|upper }}</strong>
                                             <span class="badge bg-secondary crypto-badge">{{ t.simbolo }}</span>
                                         </div>
-                                        <span class="text-primary">
-                                            <i class="fas fa-dollar-sign"></i> {{ "%.2f"|format(t.precio * t.cantidad) }}
+                                        <span class="d-flex align-items-center">
+                                            <i class="me-5"></i> $ {{ "%.2f"|format(t.precio * t.cantidad) }}
                                         </span>
                                     </div>
                                     <small class="text-muted">
                                         <i class="far fa-calendar"></i> {{ t.fecha.strftime('%d/%m/%Y') }}
                                     </small>
                                 </button>
+
                                 <button class="delete-btn" onclick="eliminarInversionCripto({{ t.id }}, this)">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
