@@ -75,6 +75,7 @@ class Transaction(db.Model):
     description = db.Column(db.String(200))
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
+
 class Acciones(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
@@ -125,13 +126,7 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    return redirect(url_for('dashboard'))  # O render_template("index.html")
-
-
-@app.route('/indicadores')
-@login_required
-def indicadores():
-    return render_template('indicadores.html')
+    return redirect(url_for('inicio'))  # O render_template("index.html")
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Rutas de acciones
@@ -225,7 +220,22 @@ def acciones():
         .limit(5)
     ).scalars()
     
-    return render_template('acciones.html', transacciones=transacciones)
+    stock_names = {
+    'AAPL': {'name': 'APPLE', 'symbol': 'AAPL'},
+    'MSFT': {'name': 'MICROSOFT', 'symbol': 'MSFT'},
+    'GOOGL': {'name': 'ALPHABET', 'symbol': 'GOOGL'},
+    'AMZN': {'name': 'AMAZON', 'symbol': 'AMZN'},
+    'META': {'name': 'META', 'symbol': 'META'},
+    'TSLA': {'name': 'TESLA', 'symbol': 'TSLA'},
+    'NVDA': {'name': 'NVIDIA', 'symbol': 'NVDA'},
+    'JPM': {'name': 'JP MORGAN', 'symbol': 'JPM'},
+    'V': {'name': 'VISA', 'symbol': 'V'},
+    'WMT': {'name': 'WALMART', 'symbol': 'WMT'}
+    }
+
+    return render_template('acciones.html', transacciones=transacciones, stockNames=stock_names, current_user=current_user)
+
+
 
 @app.route('/eliminar_inversion/<int:id>', methods=['DELETE'])
 @login_required
@@ -679,7 +689,7 @@ def login():
             if check_password_hash(user.password, password):
                 login_user(user)
                 next_page = request.args.get('next')
-                return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+                return redirect(next_page) if next_page else redirect(url_for('inicio'))
             else:
                 flash('Contraseña incorrecta.')
         else:
@@ -762,7 +772,7 @@ def reset_password():
     email = request.args.get('email')
     return render_template('reset_password.html', email=email)
 
-@app.route('/logout')  # 👈 Esta línea va después de /forgot_password y antes de las funciones como enviar_recomendacion()
+@app.route('/logout')  
 @login_required
 def logout():
     # Limpiar todos los mensajes flash antes de cerrar sesión
@@ -835,9 +845,9 @@ def asistente():
         }), 500
     
 
-@app.route('/dashboard', methods=['GET', 'POST'])
+@app.route('/inicio', methods=['GET', 'POST'])
 @login_required
-def dashboard():
+def inicio():
     # Obtener transacciones del usuario (para GET y POST)
     transacciones = Transaction.query.filter_by(user_id=current_user.id)\
                                    .order_by(Transaction.date.desc())\
@@ -898,7 +908,7 @@ def dashboard():
 
             if not tipo or not categoria or monto <= 0:
                 flash('Por favor completa todos los campos correctamente.')
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('inicio'))
 
             nueva_transaccion = Transaction(
                 user_id=current_user.id,
@@ -913,7 +923,7 @@ def dashboard():
             flash('Transacción registrada exitosamente!')
             
             # Actualizar los datos después de añadir nueva transacción
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('inicio'))
 
         except ValueError:
             flash('El monto debe ser un número válido.')
@@ -923,7 +933,7 @@ def dashboard():
             flash('Ocurrió un error al registrar la transacción.')
 
     return render_template(
-        'dashboard.html',
+        'inicio.html',
         transacciones=transacciones,
         ingresos=ingresos,
         gastos=gastos,
@@ -932,10 +942,74 @@ def dashboard():
         bar_div=bar_div
     )
 
-               
+# ----------------------------------------------Rutas se  transacciones ---------------------------------------------------------------
+@app.route('/eliminar_transaccion/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_transaccion(id):
+    try:
+        transaccion = db.session.get(Transaction, id)
+        if not transaccion or transaccion.user_id != current_user.id:
+            return jsonify({"error": "Transacción no encontrada"}), 404
+            
+        db.session.delete(transaccion)
+        db.session.commit()
+        return jsonify({"success": True})
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error eliminando transacción: {str(e)}')
+        return jsonify({"error": str(e)}), 500
 
+@app.route('/analisis_transacciones', methods=['POST'])
+@login_required
+def analisis_transacciones():
+    try:
+        # Obtener todas las transacciones del usuario
+        transacciones = Transaction.query.filter_by(user_id=current_user.id).all()
+        
+        if not transacciones:
+            return jsonify({"error": "No hay transacciones para analizar"}), 400
 
+        # Preparar datos para el análisis
+        total_ingresos = sum(t.amount for t in transacciones if t.type == 'ingreso')
+        total_gastos = sum(t.amount for t in transacciones if t.type == 'gasto')
+        balance = total_ingresos - total_gastos
+        
+        # Obtener categorías con más gastos
+        gastos_por_categoria = {}
+        for t in transacciones:
+            if t.type == 'gasto':
+                gastos_por_categoria[t.category] = gastos_por_categoria.get(t.category, 0) + t.amount
+        top_gastos = sorted(gastos_por_categoria.items(), key=lambda x: x[1], reverse=True)[:3]
+        
+        pregunta = f"Analiza el comportamiento financiero del usuario. "
+        pregunta += f"Total ingresos: ${total_ingresos:.2f}, Total gastos: ${total_gastos:.2f}, Balance: ${balance:.2f}. "
+        pregunta += f"Principales categorías de gasto: {', '.join([f'{cat} (${monto:.2f})' for cat, monto in top_gastos])}. "
+        pregunta += "Proporciona un análisis conciso de máximo 200 palabras con recomendaciones prácticas para mejorar las finanzas personales."
+
+        client = OpenAI(
+            api_key="sk-f96903a695404895a9cc563a7ee3c4c5",
+            base_url="https://api.deepseek.com"
+        )
+
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "Eres un asesor financiero personal. Proporciona análisis útiles y recomendaciones prácticas en un tono profesional pero amigable."},
+                {"role": "user", "content": pregunta}
+            ],
+            temperature=0.7,
+            max_tokens=400
+        )
+        
+        analisis = response.choices[0].message.content
+        
+        return jsonify({"analisis": analisis})
     
+    except Exception as e:
+        return jsonify({"error": f"Error al generar el análisis: {str(e)}"}), 500
+#-----------------------------------------------------------------------------------------------------------------------
+
 # Funciones de utilidad
 def enviar_recomendacion(email, asunto, cuerpo):
     try:
@@ -985,7 +1059,7 @@ def enviar_alertas():
     usuario_email = current_user.email
     revisar_y_enviar_alerta(usuario_email)
     flash('Se han revisado los indicadores y enviado alertas si fueron necesarias.')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('inicio'))
 
 def revisar_y_enviar_alerta(usuario_email):
     token = os.environ.get('BANXICO_TOKEN', 'tu_token_aqui')
@@ -1017,6 +1091,8 @@ def debug_users():
         
     users = User.query.all()
     return '<br>'.join([f"ID: {u.id}, Usuario: {u.username}, Email: {u.email}, Creado: {u.created_at}" for u in users])
+
+
 
 # Crear tablas al iniciar
 with app.app_context():

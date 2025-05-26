@@ -1,6 +1,519 @@
-{% extends "dashboard.html" %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Financiero - App Financiera</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .navbar {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .blue-stripe {
+            background-color: #070262f5;
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .menu-item {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+        }
 
-{% block content %}
-<h1>Bienvenido a tu App Financiera</h1>
-<p>Contenido principal de la página de inicio...</p>
-{% endblock %}
+        .menu-item2 {
+            color: #B0C4DE;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+
+        }
+        .menu-item:hover {
+            color: #cfe2ff;
+        }
+        .transaction-card {
+            border-left: 4px solid;
+            margin-bottom: 10px;
+        }
+        .transaction-card.ingreso {
+            border-left-color: #28a745;
+        }
+        .transaction-card.gasto {
+            border-left-color: #dc3545;
+        }
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+         .btn-custom {
+        background-color: #070262f5;
+        border-color: #070262f5;
+        color: white !important;
+        }
+        .btn-custom:hover {
+        background-color: #05014af5;
+        border-color: #05014af5;
+        }
+        
+        .transaction-icon {
+            margin-right: 10px;
+            color: #070262f5;
+        }
+        .category-icon {
+            margin-right: 8px;
+            width: 20px;
+            text-align: center;
+        }
+
+
+        .ia-analysis-content {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #070262f5;
+            margin-top: 15px;
+        }
+
+        .transaction-card {
+            transition: all 0.3s ease;
+        }
+
+        .transaction-card:hover {
+            background-color: #f8f9fa;
+        }
+
+        .btn-custom {
+            background-color: #070262f5;
+            border-color: #070262f5;
+            color: white;
+        }
+
+        .btn-custom:hover {
+            background-color: #05014af5;
+            border-color: #05014af5;
+            color: white;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="#" style="display: flex; align-items: center;">
+                <img src="{{ url_for('static', filename='img/logo_ucc.png') }}" 
+                     alt="Logo UCC" 
+                     style="height: 30px; margin-right: 10px;">
+                Finanzas App
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link"><i class="fas fa-user menu-icon"></i> Bienvenido, {{ current_user.username }}</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt menu-icon"></i> Cerrar sesión</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Franja azul -->
+    <div class="blue-stripe">
+        <div class="container d-flex justify-content-center">
+            <a href="{{ url_for('inicio') }}" class="menu-item2"><i class="fas fa-home menu-icon"></i> Inicio</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
+
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-md-5">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4><i class="fas fa-exchange-alt transaction-icon"></i> Nueva Transacción</h4>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="{{ url_for('inicio') }}" id="transactionForm">
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-filter category-icon"></i> Tipo de transacción:</label>
+                                <select class="form-select" name="type" id="transactionType" required>
+                                    <option value="" disabled {% if not request.form.get('type') %}selected{% endif %}>Seleccione tipo</option>
+                                    <option value="ingreso" {% if request.form.get('type') == 'ingreso' %}selected{% endif %}>Ingreso</option>
+                                    <option value="gasto" {% if request.form.get('type') == 'gasto' %}selected{% endif %}>Gasto</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                               <label class="form-label"><i class="fas fa-tags category-icon"></i> Categoría:</label>
+                               <select class="form-select" name="category" id="categorySelect" required>
+                                   <option value="" disabled selected>Seleccione una categoría</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-dollar-sign category-icon"></i> Monto:</label>
+                                <input type="number" step="0.01" class="form-control" name="amount" placeholder="Monto" required>
+                            </div>
+        
+                            <button type="submit" class="btn btn-custom w-100">
+                                <i class="fas fa-plus-circle"></i> Agregar Transacción
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                        
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4><i class="fas fa-history transaction-icon"></i> Últimas Transacciones</h4>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="location.reload()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="btn btn-sm btn-custom" onclick="generarAnalisisFinanciero()">
+                            <i class="fas fa-robot"></i> Análisis IA
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if transacciones %}
+                        <div class="list-group">
+                            {% for t in transacciones %}
+                            <div class="list-group-item transaction-card {{ t.type }}" id="transaction-{{ t.id }}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas {{ 'fa-arrow-down text-success' if t.type == 'ingreso' else 'fa-arrow-up text-danger' }} me-2"></i>
+                                        <strong>{{ t.category }}</strong>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2">${{ "%.2f"|format(t.amount) }}</span>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarTransaccion({{ t.id }}, this)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="far fa-clock me-1"></i>
+                                    {{ t.date.strftime('%d/%m/%Y %H:%M') }} - {{ t.type|capitalize }}
+                                </small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>No hay transacciones registradas
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="graph-container">
+                <h4><i class="fas fa-chart-pie me-2 transaction-icon"></i>Resumen Financiero</h4>
+                {{ pie_div|safe }}
+            </div>
+
+            <div class="graph-container">
+                <h4><i class="fas fa-chart-bar me-2 transaction-icon"></i>Análisis por Categoría</h4>
+                {{ bar_div|safe }}
+            </div>
+
+            <!-- Nueva sección para el análisis IA -->
+            <div class="graph-container" id="iaAnalysisContainer" style="display: none;">
+                <h4><i class="fas fa-robot me-2 transaction-icon"></i>Análisis Financiero con IA</h4>
+                <div id="iaAnalysisContent">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> Haz clic en "Análisis IA" para obtener recomendaciones
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Inicializar al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configurar el evento change para el tipo de transacción
+        document.getElementById('transactionType').addEventListener('change', updateCategories);
+        
+        // Llamar a updateCategories() inmediatamente para cargar las categorías iniciales
+        updateCategories();
+        
+        // Configurar el manejador del formulario
+        document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+        
+            const form = this;
+            const submitBtn = form.querySelector('button[type="submit"]');
+        
+            // Mostrar estado de carga
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+            
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const error = await response.text();
+                    throw new Error(error || 'Error en el servidor');
+                }   
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Agregar Transacción';
+            }
+        });
+    });
+
+    // Datos de categorías
+    const categoriesData = {
+        ingreso: [
+            {
+                label: "Ingresos Laborales",
+                options: [
+                    { value: "Salario", text: "Salario" },
+                    { value: "Freelance", text: "Freelance/Independiente" },
+                    { value: "Comisiones", text: "Comisiones" },
+                    { value: "Bonos", text: "Bonos" },
+                    { value: "Propinas", text: "Propinas" }
+                ]
+            },
+            {
+                label: "Ingresos Pasivos",
+                options: [
+                    { value: "Inversiones", text: "Inversiones" },
+                    { value: "Dividendos", text: "Dividendos" },
+                    { value: "Intereses", text: "Intereses bancarios" },
+                    { value: "Alquiler", text: "Ingresos por alquiler" },
+                    { value: "Pensión", text: "Pensión" }
+                ]
+            },
+            {
+                label: "Otros Ingresos",
+                options: [
+                    { value: "Subsidio", text: "Subsidio/Gobierno" },
+                    { value: "Beca", text: "Beca" },
+                    { value: "Ventas", text: "Ventas ocasionales" },
+                    { value: "Herencia", text: "Herencia" },
+                    { value: "Premios", text: "Premios/Lotería" }
+                ]
+            }
+        ],
+        gasto: [
+            {
+                label: "Vivienda",
+                options: [
+                    { value: "Renta", text: "Renta" },
+                    { value: "Servicios", text: "Servicios" },
+                    { value: "Internet", text: "Internet" },
+                    { value: "Mantenimiento", text: "Mantenimiento" }
+                ]
+            },
+            {
+                label: "Alimentación",
+                options: [
+                    { value: "Supermercado", text: "Supermercado" },
+                    { value: "Restaurantes", text: "Restaurantes" }
+                ]
+            },
+            {
+                label: "Transporte",
+                options: [
+                    { value: "Gasolina", text: "Gasolina" },
+                    { value: "Transporte", text: "Transporte" },
+                    { value: "Auto", text: "Auto" },
+                    { value: "Seguro de auto", text: "Seguro de auto" }
+                ]
+            },
+            {
+                label: "Personales",
+                options: [
+                    { value: "Ropa", text: "Ropa" },
+                    { value: "Personal", text: "Cuidado personal" },
+                    { value: "Salud", text: "Salud" },
+                    { value: "Ocio", text: "Ocio" },
+                    { value: "Educacion", text: "Educación" }
+                ]
+            },
+            {
+                label: "Finanzas",
+                options: [
+                    { value: "Deudas", text: "Deudas" },
+                    { value: "Impuestos", text: "Impuestos" },
+                    { value: "Donaciones", text: "Donaciones" }
+                ]
+            },
+            {
+                label: "Otros",
+                options: [
+                    { value: "Suscripciones", text: "Suscripciones" },
+                    { value: "Mascotas", text: "Mascotas" },
+                    { value: "Regalos", text: "Regalos" },
+                    { value: "Viajes", text: "Viajes" },
+                    { value: "Tecnologia", text: "Tecnología" },
+                    { value: "Ahorro", text: "Ahorro" },
+                    { value: "Emergencias", text: "Emergencias" },
+                    { value: "Honorarios", text: "Honorarios" }
+                ]
+            }
+        ]
+    };
+
+    // Función para actualizar las categorías
+    function updateCategories() {
+        const transactionType = document.getElementById("transactionType").value;
+        const categorySelect = document.getElementById("categorySelect");
+        
+        // Limpiar opciones anteriores
+        categorySelect.innerHTML = '<option value="" disabled selected>Seleccione una categoría</option>';
+        
+        if (categoriesData[transactionType]) {
+            categoriesData[transactionType].forEach(group => {
+                const optgroup = document.createElement("optgroup");
+                optgroup.label = group.label;
+                group.options.forEach(option => {
+                    const opt = document.createElement("option");
+                    opt.value = option.value;
+                    opt.textContent = option.text;
+                    
+                    // Mantener seleccionado si coincide con el formulario enviado
+                    if ("{{ request.form.get('category') }}" === option.value) {
+                        opt.selected = true;
+                    }
+                    
+                    optgroup.appendChild(opt);
+                });
+                categorySelect.appendChild(optgroup);
+            });
+        }
+    }
+// Función para eliminar transacciones con AJAX
+    async function eliminarTransaccion(id, elemento) {
+        if (!confirm('¿Estás seguro de que deseas eliminar esta transacción?')) {
+            return;
+        }
+        
+        const icon = elemento.querySelector('i');
+        icon.classList.replace('fa-trash-alt', 'fa-spinner', 'fa-spin');
+        
+        try {
+            const response = await fetch(`/eliminar_transaccion/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            // Eliminar visualmente la transacción
+            document.getElementById(`transaction-${id}`).remove();
+            
+            // Mostrar mensaje si no hay más transacciones
+            if (document.querySelectorAll('.list-group-item').length === 0) {
+                document.querySelector('.card-body').innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>No hay transacciones registradas
+                    </div>`;
+            }
+            
+            // Recargar gráficos
+            location.reload();
+            
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al eliminar la transacción: ' + error.message);
+        } finally {
+            icon.classList.replace('fa-spinner', 'fa-trash-alt');
+            icon.classList.remove('fa-spin');
+        }
+    }
+
+    // Función para generar análisis IA
+    async function generarAnalisisFinanciero() {
+        const iaContainer = document.getElementById('iaAnalysisContainer');
+        const iaContent = document.getElementById('iaAnalysisContent');
+        
+        iaContainer.style.display = 'block';
+        iaContent.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Generando análisis financiero...</p>
+            </div>`;
+
+        try {
+            const response = await fetch('/analisis_transacciones', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            iaContent.innerHTML = `
+                <div class="ia-analysis-content">
+                    <h6>Análisis Financiero Personalizado</h6>
+                    <div class="mb-2">
+                        <small class="text-muted">${new Date().toLocaleString()}</small>
+                    </div>
+                    <p>${data.analisis.replace(/\n/g, '<br>')}</p>
+                    <small class="text-muted">Análisis generado por IA</small>
+                </div>`;
+            
+        } catch (error) {
+            console.error('Error al obtener análisis IA:', error);
+            iaContent.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No se pudo generar el análisis: ${error.message}
+                </div>`;
+        }
+    }
+
+
+</script>
+</body>
+</html>

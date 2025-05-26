@@ -11,6 +11,13 @@
         .navbar { background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .blue-stripe { background-color: #070262f5; color: white; padding: 15px 0; margin-bottom: 20px; }
         .menu-item { color: white; margin: 0 15px; text-decoration: none; font-weight: 500; }
+
+        .menu-item2 {
+            color: #B0C4DE;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+        }
         .menu-item:hover { color: #cfe2ff; }
         .graph-container { 
             background: white; 
@@ -113,35 +120,63 @@
             justify-content: center;
             padding: 20px;
         }
+
+        .input-icon {
+            margin-right: 8px;
+            color: #6c757d;
+        }
+        .stock-icon {
+            margin-right: 8px;
+            width: 20px;
+            color: #070262f5;
+        }
+        .alert-icon {
+            margin-right: 8px;
+        }
+        .menu-icon {
+            margin-right: 6px;
+        }
+        .icon-header{
+            margin-right: 8px;
+            width: 20px;
+            color: #070262f5;
+        }
+        
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">
-            <a class="navbar-brand" href="#">Finanzas App</a>
+            <a class="navbar-brand" href="#" style="display: flex; align-items: center;">
+                <img src="{{ url_for('static', filename='img/logo_ucc.png') }}" 
+                     alt="Logo UCC" 
+                     style="height: 30px; margin-right: 10px;">
+                Finanzas App
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
+                        <span class="nav-link"><i class="fas fa-user menu-icon"></i> Bienvenido, {{ current_user.username }}</span>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('logout') }}">Cerrar sesión</a>
+                        <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt menu-icon"></i> Cerrar sesión</a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
+
     <div class="blue-stripe">
         <div class="container d-flex justify-content-center">
-            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
-            <a href="{{ url_for('indicadores') }}" class="menu-item">Divisas</a>
-            <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
+            <a href="{{ url_for('inicio') }}" class="menu-item">Inicio</a>
+            <a href="{{ url_for('acciones') }}" class="menu-item2"><i class="fas fa-chart-line menu-icon"></i> Acciones</a>
             <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
-            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financiera</a>
+            <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financciera</a>
+
         </div>
     </div>
 
@@ -150,32 +185,31 @@
             <div class="col-md-5">
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h4><i class="fas fa-plus-circle"></i> Nueva Inversión</h4>
+                        <h4><i class="fas fa-plus-circle icon-header"></i> Nueva Inversión</h4>
                     </div>
                     <div class="card-body">
                         <form id="accionForm" method="POST" action="{{ url_for('acciones') }}">
                             <div class="mb-3">
-                                <label class="form-label">Seleccione Acción:</label>
+                                <label class="form-label"><i class="fas fa-search-dollar input-icon"></i> Seleccione Acción:</label>
                                 <select class="form-select" name="accion" id="accionSelect" required>
-                                    <option value="" disabled selected>Seleccione una acción</option>
-                                    <option value="AAPL">Apple (AAPL)</option>
-                                    <option value="MSFT">Microsoft (MSFT)</option>
-                                    <option value="GOOGL">Alphabet (GOOGL)</option>
-                                    <option value="AMZN">Amazon (AMZN)</option>
-                                    <option value="META">Meta (META)</option>
-                                    <option value="TSLA">Tesla (TSLA)</option>
-                                    <option value="NVDA">NVIDIA (NVDA)</option>
-                                    <option value="JPM">JP Morgan (JPM)</option>
-                                    <option value="V">Visa (V)</option>
-                                    <option value="WMT">Walmart (WMT)</option>
+                                    <option value="AAPL"><i class="fab fa-apple stock-icon"></i> Apple (AAPL)</option>
+                                    <option value="MSFT"><i class="fab fa-microsoft stock-icon"></i> Microsoft (MSFT)</option>
+                                    <option value="GOOGL"><i class="fab fa-google stock-icon"></i> Alphabet (GOOGL)</option>
+                                    <option value="AMZN"><i class="fab fa-amazon stock-icon"></i> Amazon (AMZN)</option>
+                                    <option value="META"><i class="fab fa-facebook stock-icon"></i> Meta (META)</option>
+                                    <option value="TSLA"><i class="fas fa-car stock-icon"></i> Tesla (TSLA)</option>
+                                    <option value="NVDA"><i class="fas fa-microchip stock-icon"></i> NVIDIA (NVDA)</option>
+                                    <option value="JPM"><i class="fas fa-university stock-icon"></i> JP Morgan (JPM)</option>
+                                    <option value="V"><i class="fas fa-credit-card stock-icon"></i> Visa (V)</option>
+                                    <option value="WMT"><i class="fas fa-shopping-cart stock-icon"></i> Walmart (WMT)</option>
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Fecha de inversión:</label>
+                                <label class="form-label"><i class="far fa-calendar-alt input-icon"></i> Fecha de inversión:</label>
                                 <input type="date" class="form-control" name="fecha_compra" id="fechaCompra" required max="">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Monto invertido (USD):</label>
+                                <label class="form-label"><i class="fas fa-dollar-sign input-icon"></i> Monto invertido (USD):</label>
                                 <input type="number" step="0.01" class="form-control" name="inversion" id="montoInvertido" required>
                             </div>
                             <button type="submit" class="btn btn-action w-100">
@@ -184,7 +218,7 @@
                         </form>
                         
                         <div id="operationSuccess" class="operation-success mt-3">
-                            <i class="fas fa-check-circle text-success"></i>
+                            <i class="fas fa-check-circle text-success alert-icon"></i>
                             <strong> Inversión registrada con éxito!</strong>
                             <p id="successDetails" class="mb-0 mt-2"></p>
                         </div>
@@ -193,7 +227,7 @@
 
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-list"></i> Mis Últimas Inversiones</h5>
+                        <h5><i class="fas fa-list icon-header"></i>  Últimas Inversiones</h5>
                         <button class="btn btn-sm btn-outline-primary" onclick="refreshOperations()">
                             <i class="fas fa-sync-alt"></i> Actualizar
                         </button>
@@ -204,22 +238,52 @@
                                 {% for t in transacciones %}
                                 <div class="transaction-item">
                                     <button class="transaction-btn" 
-                                            onclick="mostrarDetalle('{{ t.accion }}', '{{ t.fecha.strftime('%Y-%m-%d') }}', {{ t.precio * t.cantidad }}, this)">
-                                        <div class="d-flex justify-content-between">
-                                            <strong>{{ t.accion }}</strong>
-                                            <span class="text-primary">
-                                                ${{ "%.2f"|format(t.precio * t.cantidad) }}
-                                            </span>
+                                        onclick="mostrarDetalle('{{ t.accion }}', '{{ t.fecha.strftime('%Y-%m-%d') }}', {{ t.precio * t.cantidad }}, this)">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            {% if t.accion == 'AAPL' %}
+                                                <i class="fab fa-apple stock-icon"></i>
+                                            {% elif t.accion == 'MSFT' %}
+                                                <i class="fab fa-microsoft stock-icon"></i>
+                                            {% elif t.accion == 'GOOGL' %}
+                                                <i class="fab fa-google stock-icon"></i>
+                                            {% elif t.accion == 'AMZN' %}
+                                                <i class="fab fa-amazon stock-icon"></i>
+                                            {% elif t.accion == 'META' %}
+                                                <i class="fab fa-facebook stock-icon"></i>
+                                            {% elif t.accion == 'TSLA' %}
+                                                <i class="fas fa-car stock-icon"></i>
+                                            {% elif t.accion == 'NVDA' %}
+                                                <i class="fas fa-microchip stock-icon"></i>
+                                            {% elif t.accion == 'JPM' %}
+                                                <i class="fas fa-university stock-icon"></i>
+                                            {% elif t.accion == 'V' %}
+                                                <i class="fas fa-credit-card stock-icon"></i>
+                                            {% elif t.accion == 'WMT' %}
+                                                <i class="fas fa-shopping-cart stock-icon"></i>
+                                            {% else %}
+                                                <i class="fas fa-chart-line stock-icon"></i>
+                                            {% endif %}
+                                            <strong>{{ stockNames[t.accion].name }}</strong>
+                                            <span class="badge bg-secondary stock-badge">{{ t.accion }}</span>
                                         </div>
-                                        <small class="text-muted">{{ t.fecha.strftime('%d/%m/%Y') }}</small>
+                                        <span class="text-primary">
+                                            <i class="fas fa-dollar-sign"></i> {{ "%.2f"|format(t.precio * t.cantidad) }}
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="far fa-calendar"></i> {{ t.fecha.strftime('%d/%m/%Y') }}
+                                    </small>
                                     </button>
                                     <button class="delete-btn" onclick="eliminarInversion({{ t.id }}, this)">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </div>
-                                {% endfor %}
+                            {% endfor %}
                             {% else %}
-                                <div class="alert alert-info">No hay inversiones registradas.</div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle alert-icon"></i> No hay inversiones registradas.
+                                </div>
                             {% endif %}
                         </div>
                     </div>
@@ -228,28 +292,28 @@
 
             <div class="col-md-7">
                 <div class="graph-container">
-                    <h4><i class="fas fa-chart-line"></i> Evolución de la Inversión</h4>
+                    <h4><i class="fas fa-chart-line icon-header"></i> Evolución de la Inversión</h4>
                     <div id="stockChart">
                         <div class="alert alert-info">
-                            Seleccione una inversión para ver su evolución
+                            <i class="fas fa-info-circle alert-icon"></i> Seleccione una inversión para ver su evolución
                         </div>
                     </div>
                 </div>
 
                 <div class="summary-container">
-                    <h5><i class="fas fa-table"></i> Resumen de la Inversión</h5>
+                    <h5><i class="fas fa-table icon-header"></i> Resumen de la Inversión</h5>
                     <div id="summaryContent">
                         <div class="alert alert-info">
-                            Seleccione una inversión para ver el resumen
+                            <i class="fas fa-info-circle alert-icon"></i> Seleccione una inversión para ver el resumen
                         </div>
                     </div>
                 </div>
 
                 <div class="ia-analysis-container">
-                    <h5><i class="fas fa-robot"></i> Análisis de IA</h5>
+                    <h5><i class="fas fa-robot icon-header"></i> Análisis de IA</h5>
                     <div id="iaAnalysisContent">
                         <div class="alert alert-info">
-                            Seleccione una inversión para obtener un análisis de IA
+                            <i class="fas fa-info-circle alert-icon"></i> Seleccione una inversión para obtener un análisis de IA
                         </div>
                     </div>
                 </div>
@@ -260,6 +324,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        
+
         // Configurar fecha máxima para el input de fecha
         document.getElementById('fechaCompra').max = new Date().toISOString().split('T')[0];
 
@@ -402,12 +468,12 @@
         function mostrarResumen(rendimiento) {
             const returnClass = rendimiento.rendimiento >= 0 ? 'positive-return' : 'negative-return';
             const returnSign = rendimiento.rendimiento >= 0 ? '+' : '';
-            
+    
             document.getElementById('summaryContent').innerHTML = `
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover table-summary">
                         <thead>
-                            <tr>
+                             <tr>
                                 <th>Acción</th>
                                 <th>Inversión Inicial</th>
                                 <th>Fecha de Inversión</th>
@@ -415,9 +481,9 @@
                                 <th>Rendimiento</th>
                             </tr>
                         </thead>
-                        <tbody>
+                     <tbody>
                             <tr>
-                                <td>${rendimiento.accion}</td>
+                                <td>${rendimiento.accion}</td>                                
                                 <td>$${rendimiento.inversion.toFixed(2)}</td>
                                 <td>${new Date(rendimiento.fecha_compra).toLocaleDateString()}</td>
                                 <td>$${rendimiento.valor_actual.toFixed(2)}</td>

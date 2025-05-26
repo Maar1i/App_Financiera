@@ -11,6 +11,13 @@
         .navbar { background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .blue-stripe { background-color: #070262f5; color: white; padding: 15px 0; margin-bottom: 20px; }
         .menu-item { color: white; margin: 0 15px; text-decoration: none; font-weight: 500; }
+        .menu-item2 {
+            color: #B0C4DE;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 500;
+
+        }
         .menu-item:hover { color: #cfe2ff; }
         .graph-container { 
             background: white; 
@@ -117,68 +124,91 @@
             font-size: 0.8rem;
             margin-left: 5px;
         }
+
+        .input-icon {
+            margin-right: 8px;
+            color: #6c757d;
+        }
+        .crypto-icon {
+            margin-right: 8px;
+            width: 20px;
+            color: #070262f5;
+        }
+        .alert-icon {
+            margin-right: 8px;
+        }
+        .menu-icon {
+            margin-right: 6px;
+        }
+
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">
-            <a class="navbar-brand" href="#">Finanzas App</a>
+            <a class="navbar-brand" href="#" style="display: flex; align-items: center;">
+                <img src="{{ url_for('static', filename='img/logo_ucc.png') }}" 
+                     alt="Logo UCC" 
+                     style="height: 30px; margin-right: 10px;">
+                Finanzas App
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <span class="nav-link">Bienvenido, {{ current_user.username }}</span>
+                        <span class="nav-link"><i class="fas fa-user menu-icon"></i> Bienvenido, {{ current_user.username }}</span>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('logout') }}">Cerrar sesión</a>
+                        <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt menu-icon"></i> Cerrar sesión</a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
+
     <div class="blue-stripe">
         <div class="container d-flex justify-content-center">
-            <a href="{{ url_for('dashboard') }}" class="menu-item">Inicio</a>
-            <a href="{{ url_for('indicadores') }}" class="menu-item">Divisas</a>
+            <a href="{{ url_for('inicio') }}" class="menu-item">Inicio</a>
             <a href="{{ url_for('acciones') }}" class="menu-item">Acciones</a>
-            <a href="{{ url_for('criptomonedas') }}" class="menu-item">Criptomonedas</a>
+            <a href="{{ url_for('criptomonedas') }}" class="menu-item2"><i class="fab fa-bitcoin menu-icon"></i> Criptomonedas</a>
             <a href="{{ url_for('asistente') }}" class="menu-item">Consulta Financiera</a>
         </div>
     </div>
 
-    <div class="container my-4">
+<div class="container my-4">
         <div class="row">
             <div class="col-md-5">
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h4><i class="fas fa-plus-circle"></i> Nueva Inversión</h4>
+                        <h4><i class="fas fa-plus-circle crypto-icon"></i> Nueva Inversión</h4>
                     </div>
                     <div class="card-body">
                         <form id="cryptoForm" method="POST" action="{{ url_for('criptomonedas') }}">
                             <div class="mb-3">
-                                <label class="form-label">Seleccione Criptomoneda:</label>
+                                <label class="form-label"><i class="fas fa-coins input-icon"></i> Seleccione Criptomoneda:</label>
                                 <select class="form-select" name="cripto" id="criptoSelect" required>
-                                    <option value="" disabled selected>Seleccione una criptomoneda</option>
-                                    <option value="bitcoin">Bitcoin (BTC-USD)</option>
-                                    <option value="ethereum">Ethereum (ETH-USD)</option>
-                                    <option value="tether">Tether (USDT-USD)</option>
-                                    <option value="binance-coin">Binance Coin (BNB-USD)</option>
-                                    <option value="solana">Solana (SOL-USD)</option>
-                                    <option value="usd-coin">USD Coin (USDC-USD)</option><option value="xrp">XRP (XRP-USD)</option>
-                                    <option value="dogecoin">Dogecoin (DOGE-USD)</option>
-                                    <option value="cardano">Cardano (ADA-USD)</option>
-                                    <option value="shiba-inu">Shiba Inu (SHIB-USD)</option>
+                                    <option value="" disabled selected><i class="fas fa-chevron-down"></i> Seleccione</option>
+                                    <option value="bitcoin"><i class="fab fa-bitcoin crypto-icon"></i> Bitcoin (BTC)</option>
+                                    <option value="ethereum"><i class="fab fa-ethereum crypto-icon"></i> Ethereum (ETH)</option>
+                                    <option value="tether"><i class="fas fa-dollar-sign crypto-icon"></i> Tether (USDT)</option>
+                                    <option value="binance-coin"><i class="fas fa-chart-line crypto-icon"></i> Binance Coin (BNB)</option>
+                                    <option value="solana"><i class="fas fa-bolt crypto-icon"></i> Solana (SOL)</option>
+                                    <option value="usd-coin"><i class="fas fa-dollar-sign crypto-icon"></i> USD Coin (USDC)</option>
+                                    <option value="xrp"><i class="fas fa-exchange-alt crypto-icon"></i> XRP (XRP)</option>
+                                    <option value="dogecoin"><i class="fas fa-dog crypto-icon"></i> Dogecoin (DOGE)</option>
+                                    <option value="cardano"><i class="fas fa-shield-alt crypto-icon"></i> Cardano (ADA)</option>
+                                    <option value="shiba-inu"><i class="fas fa-dog crypto-icon"></i> Shiba Inu (SHIB)</option>
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Fecha de inversión:</label>
+                                <label class="form-label"><i class="far fa-calendar-alt input-icon"></i> Fecha de inversión:</label>
                                 <input type="date" class="form-control" name="fecha_compra" id="fechaCompra" required max="">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Monto invertido (USD):</label>
+                                <label class="form-label"><i class="fas fa-dollar-sign input-icon"></i> Monto invertido (USD):</label>
                                 <input type="number" step="0.01" class="form-control" name="inversion" id="montoInvertido" required>
                             </div>
                             <button type="submit" class="btn btn-action w-100">
@@ -187,7 +217,7 @@
                         </form>
                         
                         <div id="operationSuccess" class="operation-success mt-3">
-                            <i class="fas fa-check-circle text-success"></i>
+                            <i class="fas fa-check-circle text-success alert-icon"></i>
                             <strong> Inversión registrada con éxito!</strong>
                             <p id="successDetails" class="mb-0 mt-2"></p>
                         </div>
@@ -196,7 +226,7 @@
 
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-list"></i> Mis Últimas Inversiones</h5>
+                        <h5><i class="fas fa-list crypto-icon"></i>  Últimas Inversiones</h5>
                         <button class="btn btn-sm btn-outline-primary" onclick="refreshOperations()">
                             <i class="fas fa-sync-alt"></i> Actualizar
                         </button>
@@ -205,26 +235,54 @@
                         <div id="listaOperaciones">
                             {% if transacciones %}
                                 {% for t in transacciones %}
-                                <div class="transaction-item">
-                                    <button class="transaction-btn" 
-                                            onclick="mostrarDetalle('{{ t.cripto }}', '{{ t.fecha.strftime('%Y-%m-%d') }}', {{ t.precio * t.cantidad }}, this)">
-                                        <div class="d-flex justify-content-between">
-                                            <strong>{{ t.cripto|upper }}
-                                                <span class="badge bg-secondary crypto-badge">{{ t.simbolo }}</span>
-                                            </strong>
-                                            <span class="text-primary">
-                                                ${{ "%.2f"|format(t.precio * t.cantidad) }}
-                                            </span>
+                            <div class="transaction-item">
+                                <button class="transaction-btn" 
+                                        onclick="mostrarDetalle('{{ t.cripto }}', '{{ t.fecha.strftime('%Y-%m-%d') }}', {{ t.precio * t.cantidad }}, this)">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            {% if t.cripto == 'bitcoin' %}
+                                                <i class="fab fa-bitcoin crypto-icon"></i>
+                                            {% elif t.cripto == 'ethereum' %}
+                                                <i class="fab fa-ethereum crypto-icon"></i>
+                                            {% elif t.cripto == 'tether' %}
+                                                <i class="fas fa-dollar-sign crypto-icon"></i>
+                                            {% elif t.cripto == 'binance-coin' %}
+                                                <i class="fas fa-chart-line crypto-icon"></i>
+                                            {% elif t.cripto == 'solana' %}
+                                                <i class="fas fa-bolt crypto-icon"></i>
+                                            {% elif t.cripto == 'usd-coin' %}
+                                                <i class="fas fa-dollar-sign crypto-icon"></i>
+                                            {% elif t.cripto == 'xrp' %}
+                                                <i class="fas fa-exchange-alt crypto-icon"></i>
+                                            {% elif t.cripto == 'dogecoin' %}
+                                                <i class="fas fa-dog crypto-icon"></i>
+                                            {% elif t.cripto == 'cardano' %}
+                                                <i class="fas fa-shield-alt crypto-icon"></i>
+                                            {% elif t.cripto == 'shiba-inu' %}
+                                                <i class="fas fa-dog crypto-icon"></i>
+                                            {% else %}
+                                                <i class="fas fa-coins crypto-icon"></i>
+                                            {% endif %}
+                                            <strong>{{ t.cripto|upper }}</strong>
+                                            <span class="badge bg-secondary crypto-badge">{{ t.simbolo }}</span>
                                         </div>
-                                        <small class="text-muted">{{ t.fecha.strftime('%d/%m/%Y') }}</small>
-                                    </button>
-                                    <button class="delete-btn" onclick="eliminarInversionCripto({{ t.id }}, this)">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </div>
-                                {% endfor %}
+                                        <span class="text-primary">
+                                            <i class="fas fa-dollar-sign"></i> {{ "%.2f"|format(t.precio * t.cantidad) }}
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="far fa-calendar"></i> {{ t.fecha.strftime('%d/%m/%Y') }}
+                                    </small>
+                                </button>
+                                <button class="delete-btn" onclick="eliminarInversionCripto({{ t.id }}, this)">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
                             {% else %}
-                                <div class="alert alert-info">No hay inversiones registradas.</div>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle alert-icon"></i> No hay inversiones registradas.
+                                </div>
                             {% endif %}
                         </div>
                     </div>
@@ -233,28 +291,28 @@
 
             <div class="col-md-7">
                 <div class="graph-container">
-                    <h4><i class="fas fa-chart-line"></i> Evolución de la Inversión</h4>
+                    <h4><i class="fas fa-chart-line crypto-icon"></i> Evolución de la Inversión</h4>
                     <div id="cryptoChart">
                         <div class="alert alert-info">
-                            Seleccione una inversión para ver su evolución
+                            <i class="fas fa-info-circle alert-icon"></i> Seleccione una inversión para ver su evolución
                         </div>
                     </div>
                 </div>
 
                 <div class="summary-container">
-                    <h5><i class="fas fa-table"></i> Resumen de la Inversión</h5>
+                    <h5><i class="fas fa-table crypto-icon"></i> Resumen de la Inversión</h5>
                     <div id="summaryContent">
                         <div class="alert alert-info">
-                            Seleccione una inversión para ver el resumen
+                            <i class="fas fa-info-circle alert-icon"></i> Seleccione una inversión para ver el resumen
                         </div>
                     </div>
                 </div>
 
                 <div class="ia-analysis-container">
-                    <h5><i class="fas fa-robot"></i> Análisis de IA</h5>
+                    <h5><i class="fas fa-robot crypto-icon"></i> Análisis de IA</h5>
                     <div id="iaAnalysisContent">
                         <div class="alert alert-info">
-                            Seleccione una inversión para obtener un análisis de IA
+                            <i class="fas fa-info-circle alert-icon"></i> Seleccione una inversión para obtener un análisis de IA
                         </div>
                     </div>
                 </div>
