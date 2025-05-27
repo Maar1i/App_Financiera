@@ -327,7 +327,7 @@
                         <div id="transactionsContainer">
                             {% if transacciones %}
                                 <div class="list-group">
-                                    {% for t in transacciones %}
+                                    {% for t in transacciones[:5] %}
                                         <div class="list-group-item transaction-card {{ t.type }}" id="transaction-{{ t.id }}">
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div>
@@ -352,7 +352,7 @@
                                 <!-- Botón "Ver más" solo si hay más de 5 transacciones -->
                                 {% if transacciones|length > 5 %}
                                     <button class="btn btn-custom mt-3 w-100" onclick="mostrarTodasTransacciones()">
-                                        <i class="fas fa-eye"></i> Ver más transacciones
+                                        <i class="fas fa-eye"></i> Ver más 
                                     </button>
                                 {% endif %}
                                 {% else %}
@@ -373,7 +373,7 @@
                             <h4 class="m-0"><i class="fas fa-chart-pie me-3 transaction-icon"></i>Resumen Financiero</h4>
                         </div>
                         <div class="card-body p-0">
-                            <div id="pieChart" style="width:100%; height:300px;"></div>
+                            <div id="pieChart" style="width:100%; height:400px;"></div>
                         </div>
                     </div>
 
@@ -383,7 +383,7 @@
                             <h4 class="m-0"><i class="fas fa-chart-bar me-3 transaction-icon"></i>Análisis por Categoría</h4>
                         </div>
                         <div class="card-body p-0">
-                            <div id="barChart" style="width:100%; height:300px;"></div>
+                            <div id="barChart" style="width:100%; height:400px;"></div>
                         </div>
                     </div>
 
