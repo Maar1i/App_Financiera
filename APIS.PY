@@ -350,8 +350,3 @@ def obtener_historial_cripto(moneda: str, fecha_inicio: str, monto_invertido: fl
 # Ejemplo de uso
 df = obtener_historial_cripto("bitcoin", "01/05/2024", monto_invertido=1000)
 print(df.head())
-
-
-
-
-
