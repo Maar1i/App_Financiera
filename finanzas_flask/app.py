@@ -783,27 +783,21 @@ def logout():
 
 
 DEEPSEEK_API_KEY = "sk-f96903a695404895a9cc563a7ee3c4c5"
-
 @app.route('/asistente', methods=['GET', 'POST'])
 @login_required
 def asistente():
     if request.method == 'GET':
         return render_template("asistente.html")
     
-    # Obtener datos según el tipo de solicitud
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    
     try:
-        if is_ajax:
-            data = request.get_json()
-            pregunta = data.get('pregunta', '').strip()
-        else:
-            pregunta = request.form.get('pregunta', '').strip()
+        # Validación de datos
+        data = request.get_json() if request.is_json else request.form
+        pregunta = data.get('pregunta', '').strip()
         
         if not pregunta:
             return jsonify({'error': 'La pregunta no puede estar vacía'}), 400
             
-        # Llamada a la API de DeepSeek
+        # Configuración de la API call
         headers = {
             'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
             'Content-Type': 'application/json'
@@ -822,28 +816,48 @@ def asistente():
             "max_tokens": 1000
         }
         
+        # Timeout más conservador
         response = requests.post(
             'https://api.deepseek.com/chat/completions',
             headers=headers,
             json=payload,
-            timeout=20
+            timeout=30  # Aumentado de 20 a 30 segundos
         )
-        response.raise_for_status()
         
-        respuesta = response.json()["choices"][0]["message"]["content"]
+        # Verificación exhaustiva de la respuesta
+        response.raise_for_status()
+        response_data = response.json()
+        
+        if not response_data.get("choices"):
+            raise ValueError("Estructura de respuesta inesperada de la API")
+            
+        respuesta = response_data["choices"][0]["message"]["content"]
         
         return jsonify({
             'success': True,
             'respuesta': respuesta
         })
         
-    except Exception as e:
-        app.logger.error(f'Error en asistente: {str(e)}')
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f'Error de conexión: {str(e)}')
         return jsonify({
-            'error': 'Error al procesar tu pregunta',
+            'error': 'Error al conectar con el servicio de IA',
+            'details': str(e)
+        }), 503
+        
+    except (KeyError, ValueError) as e:
+        app.logger.error(f'Error procesando respuesta: {str(e)}')
+        return jsonify({
+            'error': 'Error procesando la respuesta del servicio',
+            'details': str(e)
+        }), 502
+        
+    except Exception as e:
+        app.logger.error(f'Error inesperado: {str(e)}')
+        return jsonify({
+            'error': 'Error interno del servidor',
             'details': str(e)
         }), 500
-    
 #------------------------------ Ruta de inicio ----------------------------------------
 @app.route('/inicio', methods=['GET', 'POST'])
 @login_required
